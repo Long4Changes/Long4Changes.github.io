@@ -16,6 +16,9 @@ permissions:
 jobs: # 工作流的具体内容
   deploy:
     runs-on: ubuntu-latest # 创建一个新的云端虚拟机 使用最新Ubuntu系统
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4 # 更新到最新版本
         with:
@@ -25,16 +28,20 @@ jobs: # 工作流的具体内容
         with:
           python-version: 3.x
       
-      - run: pip install mkdocs-material # 使用pip包管理工具安装mkdocs-material
+      - name: Install dependencies
+        run: pip install mkdocs-material # 使用pip包管理工具安装mkdocs-material
       
-      - name: Configure git
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - name: Build site
+        run: mkdocs build
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: './site'
       
       - name: Deploy to GitHub Pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          mkdocs gh-deploy --force
+        id: deployment
+        uses: actions/deploy-pages@v2
