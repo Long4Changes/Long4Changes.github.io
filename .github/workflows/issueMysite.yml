@@ -6,13 +6,35 @@ on: # 在什么时候触发工作流
   pull_request: # 在main分支合并别人提的pr时
     branches:
       - main
+
+# 添加权限配置
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs: # 工作流的具体内容
   deploy:
     runs-on: ubuntu-latest # 创建一个新的云端虚拟机 使用最新Ubuntu系统
     steps:
-      - uses: actions/checkout@v2 # 先checkout到main分支
-      - uses: actions/setup-python@v2 # 再安装Python3和相关环境
+      - uses: actions/checkout@v4 # 更新到最新版本
+        with:
+          fetch-depth: 0 # 获取完整的git历史
+      
+      - uses: actions/setup-python@v4 # 更新到最新版本
         with:
           python-version: 3.x
+      
       - run: pip install mkdocs-material # 使用pip包管理工具安装mkdocs-material
-      - run: mkdocs gh-deploy --force # 使用mkdocs-material部署gh-pages分支
+      
+      - name: Configure git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      
+      - name: Deploy to GitHub Pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          mkdocs gh-deploy --force
