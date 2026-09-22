@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import Terminal from './components/Terminal.vue'
 import WindowCard from './components/WindowCard.vue'
+import SiteIntro from './components/SiteIntro.vue'
 import { fetchDocumentCatalog, fetchDocument, type Visibility, type Role } from './services/api'
 
 const terminalRef = ref<InstanceType<typeof Terminal> | null>(null)
@@ -55,36 +56,49 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="layout" :class="{ 'split-pane': isWindowOpen }">
-    <div class="terminal-pane">
-      <Terminal
-        ref="terminalRef"
-        :catalog="catalog"
-        @open="handleOpenSlug"
-        @auth-change="handleAuthChange"
-        :isActive="!isWindowOpen"
-      />
-    </div>
-    <div v-if="isWindowOpen" class="window-pane">
-      <WindowCard
-        :slug="activeSlug"
-        :content="activeContent"
-        @close="handleCloseWindow"
-      />
+  <div class="page-container">
+    <SiteIntro />
+    <div class="workspace-layout" :class="{ 'split-pane': isWindowOpen }">
+      <div class="terminal-pane">
+        <Terminal
+          ref="terminalRef"
+          :catalog="catalog"
+          @open="handleOpenSlug"
+          @auth-change="handleAuthChange"
+          :isActive="!isWindowOpen"
+        />
+      </div>
+      <div v-if="isWindowOpen" class="window-pane">
+        <WindowCard
+          :slug="activeSlug"
+          :content="activeContent"
+          @close="handleCloseWindow"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.layout {
+.page-container {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  background-color: var(--surface);
+}
+
+.workspace-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   flex-direction: column;
 }
 
 @media (min-width: 768px) {
-  .layout.split-pane {
+  .workspace-layout.split-pane {
     flex-direction: row;
   }
 }
@@ -92,12 +106,14 @@ onMounted(() => {
 .terminal-pane {
   flex: 1;
   height: 100%;
+  min-height: 0;
   overflow: auto;
 }
 
 .window-pane {
   flex: 1;
   height: 100%;
+  min-height: 0;
   overflow: auto;
   border-top: 1px solid var(--primary);
   background-color: var(--surface);
@@ -132,3 +148,4 @@ onMounted(() => {
   }
 }
 </style>
+
