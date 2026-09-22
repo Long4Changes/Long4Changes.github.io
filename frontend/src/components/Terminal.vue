@@ -58,16 +58,25 @@ const AVAILABLE_COMMANDS = [
 
 const role = ref<Role>(getAuthRole())
 const isPasswordMode = ref(false)
+const isComposing = ref(false)
 const passwordPrompt = ref('[sudo] password for guest: ')
 
 const promptStr = computed(() => {
   return role.value === 'root' ? 'root@long4changes:~#' : 'guest@long4changes:/$'
 })
 
+function onCompositionStart() {
+  isComposing.value = true
+}
+
+function onCompositionEnd() {
+  isComposing.value = false
+}
+
 async function handleCommand(cmd: string) {
   // If in password prompt mode
   if (isPasswordMode.value) {
-    const enteredPassword = cmd
+    const enteredPassword = cmd.trim()
     isPasswordMode.value = false
     const maskedLen = Math.max(4, enteredPassword.length)
     const maskedDisplay = '*'.repeat(maskedLen)
@@ -405,6 +414,11 @@ function handleTabAutocomplete() {
 }
 
 function onKeyDown(e: KeyboardEvent) {
+  // If user is currently composing with an IME (e.g. Chinese input), do not intercept Enter or Tab
+  if (e.isComposing || isComposing.value || e.keyCode === 229) {
+    return
+  }
+
   if (e.key === 'Enter') {
     const val = inputBuffer.value
     inputBuffer.value = ''
@@ -554,17 +568,18 @@ function focusInput() {
       <span class="prompt">{{ isPasswordMode ? passwordPrompt : promptStr }}</span>
       <span class="input-display">{{ isPasswordMode ? '*'.repeat(inputBuffer.length) : inputBuffer }}</span>
       <span class="cursor" :class="{ 'inactive': !isActive }">█</span>
+      <input
+        :type="isPasswordMode ? 'password' : 'text'"
+        class="hidden-input"
+        v-model="inputBuffer"
+        @keydown="onKeyDown"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
+        ref="inputElement"
+        autocomplete="off"
+        spellcheck="false"
+      />
     </div>
-    
-    <input
-      :type="isPasswordMode ? 'password' : 'text'"
-      class="hidden-input"
-      v-model="inputBuffer"
-      @keydown="onKeyDown"
-      ref="inputElement"
-      autocomplete="off"
-      spellcheck="false"
-    />
   </div>
 </template>
 
@@ -605,6 +620,7 @@ function focusInput() {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .input-display {
@@ -633,10 +649,20 @@ function focusInput() {
 
 .hidden-input {
   position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
+  color: transparent;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  pointer-events: auto;
+  caret-color: transparent;
+  z-index: 2;
 }
 
 /* ASCII Search Result Card Styles */
