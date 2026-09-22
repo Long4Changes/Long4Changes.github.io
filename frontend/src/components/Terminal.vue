@@ -46,34 +46,6 @@ const commandHistory = ref<string[]>([])
 const historyIndex = ref<number>(-1)
 const draftInput = ref<string>('')
 
-const AVAILABLE_COMMANDS = [
-  'help',
-  'ls',
-  'search',
-  'ask',
-  'open',
-  'cat',
-  'bat',
-  'glow',
-  'tldr',
-  'neofetch',
-  'fastfetch',
-  'whoami',
-  'pwd',
-  'cd',
-  'uname',
-  'date',
-  'uptime',
-  'echo',
-  'history',
-  'tree',
-  'sudo',
-  'auth',
-  'logout',
-  'sync',
-  'clear'
-]
-
 const role = ref<Role>(getAuthRole())
 const cwd = ref('/')
 const isPasswordMode = ref(false)
@@ -439,10 +411,10 @@ function handleTabAutocomplete() {
     setCwd: (newCwd: string) => { cwd.value = newCwd }
   }
 
-  const { matches, commonPrefix } = defaultShellRegistry.getAutocomplete(raw, shellCtx)
+  const { matches, commonPrefix, appendSpace } = defaultShellRegistry.getAutocomplete(raw, shellCtx)
 
   if (matches.length === 1) {
-    inputBuffer.value = matches[0] + ' '
+    inputBuffer.value = appendSpace ? matches[0] + ' ' : matches[0]
   } else if (matches.length > 1) {
     if (commonPrefix.length > raw.trim().length) {
       inputBuffer.value = commonPrefix

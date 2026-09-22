@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { defaultShellRegistry, ShellRegistry } from '../services/virtual-shell/registry'
+import { defaultShellRegistry } from '../services/virtual-shell/registry'
 import type { ShellContext } from '../services/virtual-shell/types'
 
 describe('ShellRegistry and Dispatcher', () => {

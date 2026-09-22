@@ -1,7 +1,6 @@
 import type { ShellCommand, ShellContext, CommandResult } from './types'
 import { builtinCommands } from './commands/builtins'
 import { modernCommands } from './commands/modern'
-import { vfs } from './vfs'
 
 function findLongestCommonPrefix(strings: string[]): string {
   if (strings.length === 0) return ''
@@ -96,10 +95,10 @@ export class ShellRegistry {
   public getAutocomplete(
     input: string,
     ctx: ShellContext
-  ): { matches: string[]; commonPrefix: string } {
+  ): { matches: string[]; commonPrefix: string; appendSpace: boolean } {
     const trimmedLeft = input.trimStart()
     if (!trimmedLeft) {
-      return { matches: [], commonPrefix: '' }
+      return { matches: [], commonPrefix: '', appendSpace: false }
     }
 
     const parts = trimmedLeft.split(/\s+/)
@@ -113,7 +112,7 @@ export class ShellRegistry {
       const combined = Array.from(new Set([...allNames, ...systemNames]))
       const matches = combined.filter(c => c.toLowerCase().startsWith(prefix))
       const common = findLongestCommonPrefix(matches)
-      return { matches, commonPrefix: common }
+      return { matches, commonPrefix: common, appendSpace: true }
     }
 
     const cmdName = parts[0].toLowerCase()
@@ -126,7 +125,7 @@ export class ShellRegistry {
         .filter(c => c.toLowerCase().startsWith(arg))
         .map(c => `${cmdName} ${c}`)
       const common = findLongestCommonPrefix(matches)
-      return { matches, commonPrefix: common }
+      return { matches, commonPrefix: common, appendSpace: false }
     }
 
     // Case 3: bat/glow/cat/open <slug>
@@ -136,7 +135,7 @@ export class ShellRegistry {
         .filter(slug => slug.toLowerCase().startsWith(arg))
         .map(slug => `${cmdName} ${slug}`)
       const common = findLongestCommonPrefix(matches)
-      return { matches, commonPrefix: common }
+      return { matches, commonPrefix: common, appendSpace: false }
     }
 
     // Case 4: cd <dir>
@@ -146,17 +145,17 @@ export class ShellRegistry {
         .filter(d => d.toLowerCase().startsWith(arg))
         .map(d => `cd ${d}`)
       const common = findLongestCommonPrefix(matches)
-      return { matches, commonPrefix: common }
+      return { matches, commonPrefix: common, appendSpace: false }
     }
 
     // Case 5: sudo su
     if (cmdName === 'sudo') {
       if ('su'.startsWith(arg)) {
-        return { matches: ['sudo su'], commonPrefix: 'sudo su' }
+        return { matches: ['sudo su'], commonPrefix: 'sudo su', appendSpace: false }
       }
     }
 
-    return { matches: [], commonPrefix: '' }
+    return { matches: [], commonPrefix: '', appendSpace: false }
   }
 }
 
