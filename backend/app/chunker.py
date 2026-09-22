@@ -4,9 +4,6 @@ def chunk_text(text: str) -> list[str]:
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=800,
         chunk_overlap=100,
-        separators=["
-
-", "
-", " ", ""]
+        separators=["\n\n", "\n", " ", ""]
     )
     return splitter.split_text(text)

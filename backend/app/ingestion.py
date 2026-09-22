@@ -4,7 +4,7 @@ from backend.app.models import Document, DocumentChunk
 from backend.app.parser import parse_markdown
 from backend.app.chunker import chunk_text
 from backend.app.embedding import get_embeddings
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def ingest_document(markdown_content: str, db: AsyncSession):
     # Parse Markdown
@@ -29,7 +29,7 @@ async def ingest_document(markdown_content: str, db: AsyncSession):
         doc.title = parsed["title"]
         doc.content = parsed["content"]
         doc.visibility = parsed["visibility"]
-        doc.updated_at = datetime.utcnow()
+        doc.updated_at = datetime.now(timezone.utc)
         await db.commit()
         
     # Delete existing chunks

@@ -2,7 +2,7 @@ import yaml
 import re
 
 def parse_markdown(content: str):
-    yaml_pattern = r"^---\\s*\\n(.*?)\\n---\\s*\\n(.*)"
+    yaml_pattern = r"^---\s*\n(.*?)\n---\s*\n(.*)"
     match = re.search(yaml_pattern, content, re.DOTALL)
     
     metadata = {}
