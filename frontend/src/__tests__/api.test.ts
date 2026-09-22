@@ -3,6 +3,7 @@ import {
   fetchDocumentCatalog,
   fetchDocument,
   searchDocuments,
+  askQuestionStream,
   loginAuth,
   clearAuthSession,
   getAuthRole,
@@ -115,4 +116,70 @@ describe('API Service Unit & Auth Tests', () => {
     expect(results[0].slug).toBe('secret-doc')
     expect(results[0].visibility).toBe('private')
   })
+
+  it('streams RAG answer and citations via askQuestionStream with SSE response', async () => {
+    setApiBase('http://localhost:8000')
+
+    const sseBody = [
+      'event: delta',
+      'data: {"content": "扁舟是一艘"}',
+      '',
+      'event: delta',
+      'data: {"content": "飞船。"}',
+      '',
+      'event: citations',
+      'data: {"citations": [{"slug": "ark", "title": "扁舟 (Ark Project)", "visibility": "public"}]}',
+      '',
+      'event: done',
+      'data: [DONE]',
+      ''
+    ].join('\n')
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody))
+        controller.close()
+      }
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () => {
+      return new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+      })
+    })
+
+    let streamedTokens = ''
+    let receivedCitations: any[] = []
+    let isDone = false
+
+    await askQuestionStream('什么是扁舟？', {
+      onToken: (token) => { streamedTokens += token },
+      onCitations: (citations) => { receivedCitations = citations },
+      onDone: () => { isDone = true },
+      onError: (err) => { throw err }
+    })
+
+    expect(streamedTokens).toBe('扁舟是一艘飞船。')
+    expect(receivedCitations.length).toBe(1)
+    expect(receivedCitations[0].slug).toBe('ark')
+    expect(isDone).toBe(true)
+  })
+
+  it('streams fallback RAG answer when apiBase is not configured', async () => {
+    setApiBase('')
+    let streamedTokens = ''
+    let isDone = false
+
+    await askQuestionStream('飞船', {
+      onToken: (token) => { streamedTokens += token },
+      onCitations: () => {},
+      onDone: () => { isDone = true },
+      onError: (err) => { throw err }
+    })
+
+    expect(streamedTokens.length).toBeGreaterThan(0)
+    expect(isDone).toBe(true)
+  })
 })
+

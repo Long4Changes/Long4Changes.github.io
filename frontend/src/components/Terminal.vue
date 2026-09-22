@@ -2,10 +2,12 @@
 import { ref, watch, onMounted, nextTick, computed } from 'vue'
 import {
   searchDocuments,
+  askQuestionStream,
   loginAuth,
   clearAuthSession,
   getAuthRole,
   type SearchResultItem,
+  type CitationItem,
   type Role
 } from '../services/api'
 
@@ -13,8 +15,11 @@ interface HistoryItem {
   prompt?: string
   command: string
   response?: string
-  type?: 'text' | 'search-results' | 'error'
+  type?: 'text' | 'search-results' | 'rag-answer' | 'error'
   searchResults?: SearchResultItem[]
+  ragContent?: string
+  citations?: CitationItem[]
+  isStreaming?: boolean
 }
 
 const props = defineProps<{
@@ -88,7 +93,7 @@ async function handleCommand(cmd: string) {
     history.value.push({
       prompt: currentPrompt,
       command: trimmedCmd,
-      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  clear            - Clear terminal screen'
+      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  clear            - Clear terminal screen'
     })
   } else if (command === 'ls') {
     history.value.push({
@@ -194,6 +199,56 @@ async function handleCommand(cmd: string) {
           response: `Search error: ${err.message || 'Failed to query vector database'}`
         }
       }
+    }
+  } else if (command === 'ask') {
+    const question = args.join(' ')
+    if (!question) {
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: 'Usage: ask <question>'
+      })
+    } else {
+      const itemIndex = history.value.length
+      const ragItem: HistoryItem = {
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        type: 'rag-answer',
+        ragContent: '',
+        citations: [],
+        isStreaming: true
+      }
+      history.value.push(ragItem)
+      scrollToBottom()
+
+      await askQuestionStream(question, {
+        onToken(token: string) {
+          if (history.value[itemIndex]) {
+            history.value[itemIndex].ragContent = (history.value[itemIndex].ragContent || '') + token
+            scrollToBottom()
+          }
+        },
+        onCitations(citations: CitationItem[]) {
+          if (history.value[itemIndex]) {
+            history.value[itemIndex].citations = citations
+            scrollToBottom()
+          }
+        },
+        onDone() {
+          if (history.value[itemIndex]) {
+            history.value[itemIndex].isStreaming = false
+            scrollToBottom()
+          }
+        },
+        onError(err: Error) {
+          if (history.value[itemIndex]) {
+            history.value[itemIndex].isStreaming = false
+            history.value[itemIndex].type = 'error'
+            history.value[itemIndex].response = `RAG Error: ${err.message || 'Stream failed'}`
+            scrollToBottom()
+          }
+        }
+      })
     }
   } else {
     history.value.push({
@@ -301,6 +356,34 @@ function focusInput() {
 
         <div class="search-hint">
           [Tip: Click a slug link or enter 'open &lt;slug&gt;' to view document]
+        </div>
+      </div>
+
+      <!-- RAG Streaming Answer with Citations -->
+      <div v-if="item.type === 'rag-answer'" class="rag-answer-container">
+        <div class="rag-text">
+          <span style="white-space: pre-wrap;">{{ item.ragContent }}</span>
+          <span v-if="item.isStreaming" class="streaming-cursor">█</span>
+        </div>
+
+        <!-- Citation Badges -->
+        <div v-if="item.citations && item.citations.length > 0" class="citations-container">
+          <div class="citations-title">>> Citations (click to open):</div>
+          <div class="citation-badges">
+            <span
+              v-for="(cite, cIdx) in item.citations"
+              :key="cIdx"
+              class="citation-badge"
+              :class="{ 'private-citation': cite.visibility === 'private' }"
+              @click.stop="handleOpenSlug(cite.slug)"
+              :title="`Open ${cite.title}`"
+            >
+              [📄 <span v-if="cite.visibility === 'private'" class="private-tag">[PRIVATE]</span>{{ cite.slug }} :: {{ cite.title }}]
+            </span>
+          </div>
+          <div class="citation-hint">
+            [Tip: Click any citation badge above to open the source document in window card]
+          </div>
         </div>
       </div>
     </div>
@@ -482,6 +565,66 @@ function focusInput() {
 
 .search-hint {
   font-size: 0.9em;
+  opacity: 0.8;
+  margin-top: 6px;
+}
+
+/* RAG Answer & Citations Styles */
+.rag-answer-container {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.streaming-cursor {
+  animation: blink 0.8s step-start infinite;
+  display: inline-block;
+  width: 9px;
+  height: 1em;
+  background-color: var(--primary);
+  color: transparent;
+  vertical-align: bottom;
+  margin-left: 2px;
+}
+
+.citations-container {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--primary);
+}
+
+.citations-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.citation-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.citation-badge {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 6px;
+  border: 1px solid var(--primary);
+  background-color: var(--surface);
+  user-select: none;
+}
+
+.citation-badge:hover {
+  background-color: var(--primary);
+  color: var(--surface);
+}
+
+.private-citation {
+  border: 1px double var(--primary);
+}
+
+.citation-hint {
+  font-size: 0.88em;
   opacity: 0.8;
   margin-top: 6px;
 }

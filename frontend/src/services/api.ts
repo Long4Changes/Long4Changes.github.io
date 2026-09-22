@@ -271,3 +271,122 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
   }
   return results
 }
+
+export interface CitationItem {
+  slug: string
+  title: string
+  visibility?: Visibility
+}
+
+export interface StreamCallbacks {
+  onToken: (token: string) => void
+  onCitations: (citations: CitationItem[]) => void
+  onDone: () => void
+  onError: (err: Error) => void
+}
+
+export async function askQuestionStream(
+  query: string,
+  callbacks: StreamCallbacks
+): Promise<void> {
+  if (apiBase) {
+    try {
+      const res = await fetch(`${apiBase}/api/ask`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query })
+      })
+
+      if (!res.ok) {
+        throw new Error(`API returned status ${res.status}`)
+      }
+
+      if (!res.body) {
+        throw new Error('ReadableStream not supported by response')
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        let currentEvent = ''
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          if (trimmed.startsWith('event:')) {
+            currentEvent = trimmed.slice(6).trim()
+          } else if (trimmed.startsWith('data:')) {
+            const dataStr = trimmed.slice(5).trim()
+            if (currentEvent === 'delta') {
+              try {
+                const parsed = JSON.parse(dataStr)
+                if (parsed.content) {
+                  callbacks.onToken(parsed.content)
+                }
+              } catch {}
+            } else if (currentEvent === 'citations') {
+              try {
+                const parsed = JSON.parse(dataStr)
+                if (Array.isArray(parsed.citations)) {
+                  callbacks.onCitations(parsed.citations)
+                }
+              } catch {}
+            } else if (currentEvent === 'done' || dataStr === '[DONE]') {
+              callbacks.onDone()
+            } else if (currentEvent === 'error') {
+              try {
+                const parsed = JSON.parse(dataStr)
+                callbacks.onError(new Error(parsed.error || 'Stream error'))
+              } catch {
+                callbacks.onError(new Error(dataStr))
+              }
+            }
+          }
+        }
+      }
+
+      callbacks.onDone()
+      return
+    } catch (err: any) {
+      callbacks.onError(err)
+      return
+    }
+  }
+
+  // Fallback offline simulator
+  const qLower = query.toLowerCase()
+  const matchedDocs = Object.values(FALLBACK_DOCUMENTS).filter(
+    d => d.title.toLowerCase().includes(qLower) || d.content.toLowerCase().includes(qLower)
+  )
+
+  const citations: CitationItem[] = matchedDocs.map(d => ({
+    slug: d.slug,
+    title: d.title,
+    visibility: d.visibility
+  }))
+
+  const answer = matchedDocs.length > 0
+    ? `基于知识库记录：针对您的问题“${query}”，相关系统切片已索引。`
+    : `抱歉，本地知识库中未检索到与“${query}”相关的信息。`
+
+  const chunkSize = 4
+  for (let i = 0; i < answer.length; i += chunkSize) {
+    callbacks.onToken(answer.slice(i, i + chunkSize))
+    await new Promise(r => setTimeout(r, 10))
+  }
+
+  if (citations.length > 0) {
+    callbacks.onCitations(citations)
+  }
+  callbacks.onDone()
+}

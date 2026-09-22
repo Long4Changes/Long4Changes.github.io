@@ -209,4 +209,75 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
 
     wrapper.unmount()
   })
+
+  it('streams RAG response on ask command and clicking citation opens WindowCard', async () => {
+    setApiBase('http://localhost:8000')
+
+    const sseBody = [
+      'event: delta',
+      'data: {"content": "扁舟项目是一个"}',
+      '',
+      'event: delta',
+      'data: {"content": "飞船终端。"}',
+      '',
+      'event: citations',
+      'data: {"citations": [{"slug": "ark", "title": "扁舟 (Ark Project)", "visibility": "public"}]}',
+      '',
+      'event: done',
+      'data: [DONE]',
+      ''
+    ].join('\n')
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+      const u = String(url)
+      if (u.includes('/api/ask')) {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(sseBody))
+            controller.close()
+          }
+        })
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' }
+        })
+      }
+      if (u.includes('/api/documents/ark')) {
+        return new Response(JSON.stringify({
+          slug: 'ark',
+          title: '扁舟 (Ark Project)',
+          content: '这是一艘飞船。',
+          visibility: 'public'
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ documents: [] }), { status: 200 })
+    })
+
+    const wrapper = mount(App, { attachTo: document.body })
+    const input = wrapper.find('input')
+
+    // Ask question
+    await input.setValue('ask 什么是扁舟？')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    // Answer rendered
+    expect(wrapper.text()).toContain('扁舟项目是一个飞船终端。')
+
+    // Citation badge rendered
+    const citationBadge = wrapper.find('.citation-badge')
+    expect(citationBadge.exists()).toBe(true)
+    expect(citationBadge.text()).toContain('ark')
+
+    // Click citation badge -> opens WindowCard
+    await citationBadge.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.window-pane').exists()).toBe(true)
+    expect(wrapper.text()).toContain('|_ark.exe')
+    expect(wrapper.text()).toContain('这是一艘飞船。')
+
+    wrapper.unmount()
+  })
 })
+
