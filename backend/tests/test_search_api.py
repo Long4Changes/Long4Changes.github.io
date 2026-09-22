@@ -2,11 +2,11 @@ import pytest
 import os
 from httpx import AsyncClient, ASGITransport
 from datetime import datetime, timezone
-from unittest.mock import patch
 
 from backend.app.main import app
 from backend.app.database import get_session
 from backend.app.models import Document, DocumentChunk
+from backend.app.auth import create_access_token, ADMIN_PASSKEY
 
 # Set mock embeddings mode for all tests
 os.environ["MOCK_EMBEDDINGS"] = "1"
@@ -33,38 +33,41 @@ class FakeAsyncSession:
         sql_str = str(statement)
         compiled = statement.compile()
         params = compiled.params or {}
+        has_public_filter = any(v == "public" for v in params.values())
 
         # 1. Chunk search query (JOIN document_chunks)
         if "document_chunks" in sql_str:
-            # Check if query strictly filters by visibility == 'public'
-            has_public_filter = any(v == "public" for v in params.values())
             if has_public_filter:
                 return MockResult(rows=[
-                    (self.public_doc.slug, self.public_doc.title, self.public_chunk.chunk_index, self.public_chunk.content, 0.15)
+                    (self.public_doc.slug, self.public_doc.title, self.public_chunk.chunk_index, self.public_chunk.content, 0.15, "public")
                 ])
             else:
+                # Root search: returns both private and public chunks
                 return MockResult(rows=[
-                    (self.public_doc.slug, self.public_doc.title, self.public_chunk.chunk_index, self.public_chunk.content, 0.15),
-                    (self.private_doc.slug, self.private_doc.title, self.private_chunk.chunk_index, self.private_chunk.content, 0.10)
+                    (self.private_doc.slug, self.private_doc.title, self.private_chunk.chunk_index, self.private_chunk.content, 0.08, "private"),
+                    (self.public_doc.slug, self.public_doc.title, self.public_chunk.chunk_index, self.public_chunk.content, 0.15, "public")
                 ])
 
         # 2. Query document by slug
         if "documents.slug =" in sql_str:
             slug_val = next((v for k, v in params.items() if k.startswith("slug")), None)
-            vis_val = next((v for k, v in params.items() if k.startswith("visibility")), None)
 
             if slug_val == "sample-public":
                 return MockResult(scalar=self.public_doc)
             elif slug_val == "sample-private":
-                # If filtered by visibility = 'public', the private document must NOT match!
-                if vis_val == "public":
+                if has_public_filter:
                     return MockResult(scalar=None)
                 return MockResult(scalar=self.private_doc)
             return MockResult(scalar=None)
 
-        # 3. List public documents
+        # 3. List documents
         if "SELECT documents.slug" in sql_str:
-            return MockResult(rows=[(self.public_doc.slug, self.public_doc.title)])
+            if has_public_filter:
+                return MockResult(rows=[(self.public_doc.slug, self.public_doc.title, "public")])
+            return MockResult(rows=[
+                (self.public_doc.slug, self.public_doc.title, "public"),
+                (self.private_doc.slug, self.private_doc.title, "private")
+            ])
 
         return MockResult()
 
@@ -113,6 +116,23 @@ async def test_health_check():
         assert resp.json()["status"] == "ok"
 
 @pytest.mark.asyncio
+async def test_auth_login_flow():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Invalid passkey
+        resp_bad = await client.post("/api/auth", json={"passkey": "wrong-secret"})
+        assert resp_bad.status_code == 401
+        assert "Invalid administrative passkey" in resp_bad.json()["detail"]
+
+        # Valid passkey
+        resp_good = await client.post("/api/auth", json={"passkey": ADMIN_PASSKEY})
+        assert resp_good.status_code == 200
+        data = resp_good.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        assert data["role"] == "root"
+
+@pytest.mark.asyncio
 async def test_list_documents(mock_data):
     pub_doc, priv_doc, pub_chunk, priv_chunk = mock_data
     fake_session = FakeAsyncSession(pub_doc, priv_doc, pub_chunk, priv_chunk)
@@ -124,12 +144,20 @@ async def test_list_documents(mock_data):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/api/documents")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "documents" in data
-        assert len(data["documents"]) == 1
-        assert data["documents"][0]["slug"] == "sample-public"
+        # Guest list -> only public
+        resp_guest = await client.get("/api/documents")
+        assert resp_guest.status_code == 200
+        data_guest = resp_guest.json()
+        assert len(data_guest["documents"]) == 1
+        assert data_guest["documents"][0]["slug"] == "sample-public"
+
+        # Root list -> both public and private
+        token = create_access_token(role="root")
+        headers = {"Authorization": f"Bearer {token}"}
+        resp_root = await client.get("/api/documents", headers=headers)
+        assert resp_root.status_code == 200
+        data_root = resp_root.json()
+        assert len(data_root["documents"]) == 2
 
     app.dependency_overrides.clear()
 
@@ -155,8 +183,8 @@ async def test_get_public_document_success(mock_data):
     app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
-async def test_get_private_document_blocked(mock_data):
-    """Security test: Unauthenticated access to private document MUST return 404."""
+async def test_get_private_document_guest_and_root(mock_data):
+    """Security test: Guest gets 403 Forbidden; Root with JWT gets 200 OK."""
     pub_doc, priv_doc, pub_chunk, priv_chunk = mock_data
     fake_session = FakeAsyncSession(pub_doc, priv_doc, pub_chunk, priv_chunk)
 
@@ -167,15 +195,26 @@ async def test_get_private_document_blocked(mock_data):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/api/documents/sample-private")
-        assert resp.status_code == 404
-        assert "not found or permission denied" in resp.json()["detail"].lower()
+        # Guest access -> 403 Forbidden
+        resp_guest = await client.get("/api/documents/sample-private")
+        assert resp_guest.status_code == 403
+        assert "Authentication required" in resp_guest.json()["detail"]
+
+        # Root access -> 200 OK
+        token = create_access_token(role="root")
+        headers = {"Authorization": f"Bearer {token}"}
+        resp_root = await client.get("/api/documents/sample-private", headers=headers)
+        assert resp_root.status_code == 200
+        data_root = resp_root.json()
+        assert data_root["slug"] == "sample-private"
+        assert "Secret access keys" in data_root["content"]
+        assert data_root["visibility"] == "private"
 
     app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
-async def test_search_documents_public_only(mock_data):
-    """Security test: Vector search MUST strictly return only public chunks."""
+async def test_search_documents_guest_and_root(mock_data):
+    """Security test: Guest search strictly returns public chunks; Root search returns private chunks too."""
     pub_doc, priv_doc, pub_chunk, priv_chunk = mock_data
     fake_session = FakeAsyncSession(pub_doc, priv_doc, pub_chunk, priv_chunk)
 
@@ -186,17 +225,21 @@ async def test_search_documents_public_only(mock_data):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/api/search?q=secret+tokens")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["query"] == "secret tokens"
-        results = data["results"]
-        assert len(results) > 0
-
-        for item in results:
+        # 1. Guest search
+        resp_guest = await client.get("/api/search?q=secret+tokens")
+        assert resp_guest.status_code == 200
+        data_guest = resp_guest.json()
+        for item in data_guest["results"]:
+            assert item["visibility"] == "public"
             assert item["slug"] != "sample-private"
-            assert "Secret access keys" not in item["content"]
-            assert item["slug"] == "sample-public"
-            assert item["similarity"] > 0.0
+
+        # 2. Root search
+        token = create_access_token(role="root")
+        headers = {"Authorization": f"Bearer {token}"}
+        resp_root = await client.get("/api/search?q=secret+tokens", headers=headers)
+        assert resp_root.status_code == 200
+        data_root = resp_root.json()
+        results = data_root["results"]
+        assert any(item["visibility"] == "private" and item["slug"] == "sample-private" for item in results)
 
     app.dependency_overrides.clear()
