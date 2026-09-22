@@ -2,12 +2,13 @@
 import { ref, onMounted } from 'vue'
 import Terminal from './components/Terminal.vue'
 import WindowCard from './components/WindowCard.vue'
-import { fetchDocumentCatalog, fetchDocument } from './services/api'
+import { fetchDocumentCatalog, fetchDocument, getAuthRole } from './services/api'
 
+const terminalRef = ref<InstanceType<typeof Terminal> | null>(null)
 const isWindowOpen = ref(false)
 const activeSlug = ref('')
 const activeContent = ref('')
-const catalog = ref<string[]>(['ark', 'articles', 'about'])
+const catalog = ref<string[]>([])
 
 async function loadCatalog() {
   try {
@@ -16,7 +17,10 @@ async function loadCatalog() {
       catalog.value = items.map(d => d.slug)
     }
   } catch {
-    catalog.value = ['ark', 'articles', 'about']
+    const role = getAuthRole()
+    catalog.value = role === 'root'
+      ? ['ark', 'articles', 'about', 'secret-vault']
+      : ['ark', 'articles', 'about']
   }
 }
 
@@ -27,7 +31,7 @@ async function handleOpenSlug(slug: string) {
     activeContent.value = doc.content
     isWindowOpen.value = true
   } catch (err: any) {
-    console.error(`Error opening slug '${slug}':`, err)
+    terminalRef.value?.displayError(err.message || `Error opening slug '${slug}'`)
   }
 }
 
@@ -35,6 +39,13 @@ function handleCloseWindow() {
   isWindowOpen.value = false
   activeSlug.value = ''
   activeContent.value = ''
+}
+
+async function handleAuthChange(newRole: 'guest' | 'root') {
+  await loadCatalog()
+  if (newRole === 'guest' && activeSlug.value === 'secret-vault') {
+    handleCloseWindow()
+  }
 }
 
 onMounted(() => {
@@ -46,8 +57,10 @@ onMounted(() => {
   <div class="layout" :class="{ 'split-pane': isWindowOpen }">
     <div class="terminal-pane">
       <Terminal
+        ref="terminalRef"
         :catalog="catalog"
         @open="handleOpenSlug"
+        @auth-change="handleAuthChange"
         :isActive="!isWindowOpen"
       />
     </div>

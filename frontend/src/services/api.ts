@@ -1,6 +1,7 @@
 export interface DocumentItem {
   slug: string
   title: string
+  visibility?: string
 }
 
 export interface DocumentDetail {
@@ -17,6 +18,7 @@ export interface SearchResultItem {
   chunk_index: number
   content: string
   similarity: number
+  visibility?: string
 }
 
 export interface SearchResponse {
@@ -24,7 +26,49 @@ export interface SearchResponse {
   results: SearchResultItem[]
 }
 
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  role: string
+}
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
+const TOKEN_KEY = 'cyberkb_auth_token'
+const ROLE_KEY = 'cyberkb_auth_role'
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function getAuthRole(): 'guest' | 'root' {
+  try {
+    return (localStorage.getItem(ROLE_KEY) as 'guest' | 'root') || 'guest'
+  } catch {
+    return 'guest'
+  }
+}
+
+export function setAuthSession(token: string, role: string = 'root') {
+  try {
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(ROLE_KEY, role)
+  } catch {
+    // Ignore storage failure
+  }
+}
+
+export function clearAuthSession() {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(ROLE_KEY)
+  } catch {
+    // Ignore
+  }
+}
 
 export const FALLBACK_DOCUMENTS: Record<string, DocumentDetail> = {
   ark: {
@@ -78,14 +122,80 @@ def vector_search(query: str, limit: int = 5):
 - 理念: 简约、确定性、高信息密度。
 `,
     visibility: 'public'
+  },
+  'secret-vault': {
+    slug: 'secret-vault',
+    title: '私有保险箱 (Private Vault)',
+    content: `# 私有归档与内部手记
+
+> [!CAUTION]
+> 机密知识切片：仅限拥有 root 权限的所有者访问。
+
+- 内部部署配置与私钥凭证
+- 个人未公开研究计划与架构草稿
+- 离线知识库全量索引
+`,
+    visibility: 'private'
   }
+}
+
+function getAuthHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    Accept: 'application/json'
+  }
+  const token = getAuthToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
+}
+
+export async function loginAuth(passkey: string): Promise<AuthResponse> {
+  if (API_BASE) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ passkey })
+      })
+      if (res.ok) {
+        const data: AuthResponse = await res.json()
+        setAuthSession(data.access_token, data.role)
+        return data
+      }
+      if (res.status === 401) {
+        throw new Error('Invalid administrative passkey.')
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('Invalid administrative passkey')) {
+        throw err
+      }
+      // Fallback
+    }
+  }
+
+  // Local fallback auth
+  if (passkey === 'cyberkb-root-secret' || passkey === 'owner123') {
+    const authData: AuthResponse = {
+      access_token: 'mock-root-jwt-token-2026',
+      token_type: 'bearer',
+      role: 'root'
+    }
+    setAuthSession(authData.access_token, authData.role)
+    return authData
+  }
+
+  throw new Error('Invalid administrative passkey.')
 }
 
 export async function fetchDocumentCatalog(): Promise<DocumentItem[]> {
   if (API_BASE) {
     try {
       const res = await fetch(`${API_BASE}/api/documents`, {
-        headers: { Accept: 'application/json' }
+        headers: getAuthHeaders()
       })
       if (res.ok) {
         const data = await res.json()
@@ -98,28 +208,45 @@ export async function fetchDocumentCatalog(): Promise<DocumentItem[]> {
     }
   }
 
-  return Object.values(FALLBACK_DOCUMENTS).map(d => ({
-    slug: d.slug,
-    title: d.title
-  }))
+  const role = getAuthRole()
+  return Object.values(FALLBACK_DOCUMENTS)
+    .filter(d => role === 'root' || d.visibility === 'public')
+    .map(d => ({
+      slug: d.slug,
+      title: d.title,
+      visibility: d.visibility
+    }))
 }
 
 export async function fetchDocument(slug: string): Promise<DocumentDetail> {
   if (API_BASE) {
     try {
       const res = await fetch(`${API_BASE}/api/documents/${encodeURIComponent(slug)}`, {
-        headers: { Accept: 'application/json' }
+        headers: getAuthHeaders()
       })
       if (res.ok) {
         return await res.json()
       }
-    } catch {
-      // Network unreachable, fallback gracefully
+      if (res.status === 403) {
+        throw new Error(`Permission denied: '${slug}' is a private document. Run 'sudo su' or 'auth' to authenticate.`)
+      }
+      if (res.status === 404) {
+        throw new Error(`Document '${slug}' not found.`)
+      }
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Permission denied') || err.message.includes('not found'))) {
+        throw err
+      }
+      // Fallback
     }
   }
 
+  const role = getAuthRole()
   const fallback = FALLBACK_DOCUMENTS[slug]
   if (fallback) {
+    if (fallback.visibility === 'private' && role !== 'root') {
+      throw new Error(`Permission denied: '${slug}' is a private document. Run 'sudo su' or 'auth' to authenticate.`)
+    }
     return fallback
   }
   throw new Error(`Document '${slug}' not found.`)
@@ -130,21 +257,25 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
     try {
       const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`
       const res = await fetch(url, {
-        headers: { Accept: 'application/json' }
+        headers: getAuthHeaders()
       })
       if (res.ok) {
         const data: SearchResponse = await res.json()
         return data.results || []
       }
     } catch {
-      // Backend unreachable, fallback to client-side text match
+      // Fallback
     }
   }
 
-  // Client-side fallback search
+  const role = getAuthRole()
   const qLower = query.toLowerCase()
   const results: SearchResultItem[] = []
+
   for (const doc of Object.values(FALLBACK_DOCUMENTS)) {
+    if (doc.visibility === 'private' && role !== 'root') {
+      continue
+    }
     if (doc.title.toLowerCase().includes(qLower) || doc.content.toLowerCase().includes(qLower)) {
       const excerpt = doc.content.slice(0, 120).replace(/\n/g, ' ') + '...'
       results.push({
@@ -152,7 +283,8 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
         title: doc.title,
         chunk_index: 0,
         content: excerpt,
-        similarity: 0.88
+        similarity: doc.visibility === 'private' ? 0.95 : 0.88,
+        visibility: doc.visibility
       })
     }
   }
