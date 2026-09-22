@@ -1,3 +1,9 @@
+/*
+ * CyberKB Design System Tokens
+ * Grounded in:
+ * - output/kanjousen.com/design.md: Strict 0px border-radius, zero drop-shadow, #fefefe surface, #1f1f1f text
+ * - output/jiangyy.github.io/design.md: Interactive Web Terminal, JetBrains Mono font stack, wavy hyperlinks
+ */
 :root {
   --primary: #1f1f1f;
   --surface: #fefefe;

@@ -93,10 +93,12 @@ onUnmounted(() => {
   cursor: pointer;
   z-index: 1;
   background: var(--surface);
-  padding: 2px 6px;
-  min-height: 28px;
+  padding: 6px 10px;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   user-select: none;
 }
 

@@ -49,7 +49,7 @@ const AVAILABLE_COMMANDS = [
   'ask',
   'open',
   'cat',
-  'sudo su',
+  'sudo',
   'auth',
   'logout',
   'sync',
@@ -103,9 +103,7 @@ async function handleCommand(cmd: string) {
   const trimmedCmd = cmd.trim()
   if (!trimmedCmd) return
 
-  if (commandHistory.value[commandHistory.value.length - 1] !== trimmedCmd) {
-    commandHistory.value.push(trimmedCmd)
-  }
+  commandHistory.value.push(trimmedCmd)
   historyIndex.value = -1
   draftInput.value = ''
 
@@ -348,6 +346,34 @@ function findLongestCommonPrefix(strings: string[]): string {
   return prefix
 }
 
+function resolveAutocompleteMatch(
+  prefix: string,
+  candidates: string[],
+  prefixBase = '',
+  appendSpace = false
+): boolean {
+  const matches = candidates.filter(c => c.toLowerCase().startsWith(prefix.toLowerCase()))
+  if (matches.length === 1) {
+    const res = prefixBase ? `${prefixBase} ${matches[0]}` : matches[0]
+    inputBuffer.value = appendSpace ? res + ' ' : res
+    return true
+  } else if (matches.length > 1) {
+    const commonPrefix = findLongestCommonPrefix(matches)
+    if (commonPrefix.length > prefix.length) {
+      inputBuffer.value = prefixBase ? `${prefixBase} ${commonPrefix}` : commonPrefix
+    } else {
+      history.value.push({
+        prompt: promptStr.value,
+        command: inputBuffer.value,
+        response: matches.join('   ')
+      })
+      scrollToBottom()
+    }
+    return true
+  }
+  return false
+}
+
 function handleTabAutocomplete() {
   const raw = inputBuffer.value
   const trimmedLeft = raw.trimStart()
@@ -358,47 +384,23 @@ function handleTabAutocomplete() {
   // Case 1: Completing the command word itself (no trailing space)
   if (parts.length === 1 && !raw.endsWith(' ')) {
     const prefix = parts[0].toLowerCase()
-    const matches = AVAILABLE_COMMANDS.filter(cmd => cmd.startsWith(prefix))
-
-    if (matches.length === 1) {
-      inputBuffer.value = matches[0] + ' '
-    } else if (matches.length > 1) {
-      const commonPrefix = findLongestCommonPrefix(matches)
-      if (commonPrefix.length > prefix.length) {
-        inputBuffer.value = commonPrefix
-      } else {
-        history.value.push({
-          prompt: promptStr.value,
-          command: raw,
-          response: matches.join('   ')
-        })
-        scrollToBottom()
-      }
-    }
+    resolveAutocompleteMatch(prefix, AVAILABLE_COMMANDS, '', true)
     return
   }
 
-  // Case 2: Completing slug for 'open' or 'cat'
   const commandWord = parts[0].toLowerCase()
+
+  // Case 2: Completing sub-command for 'sudo'
+  if (commandWord === 'sudo') {
+    const subArg = parts.length > 1 ? parts[1].toLowerCase() : ''
+    resolveAutocompleteMatch(subArg, ['su'], 'sudo', false)
+    return
+  }
+
+  // Case 3: Completing slug for 'open' or 'cat'
   if ((commandWord === 'open' || commandWord === 'cat') && props.catalog && props.catalog.length > 0) {
     const slugPrefix = parts.length > 1 ? parts[1].toLowerCase() : ''
-    const matches = props.catalog.filter(slug => slug.toLowerCase().startsWith(slugPrefix))
-
-    if (matches.length === 1) {
-      inputBuffer.value = `${commandWord} ${matches[0]}`
-    } else if (matches.length > 1) {
-      const commonPrefix = findLongestCommonPrefix(matches)
-      if (commonPrefix.length > slugPrefix.length) {
-        inputBuffer.value = `${commandWord} ${commonPrefix}`
-      } else {
-        history.value.push({
-          prompt: promptStr.value,
-          command: raw,
-          response: matches.join('   ')
-        })
-        scrollToBottom()
-      }
-    }
+    resolveAutocompleteMatch(slugPrefix, props.catalog, commandWord, false)
   }
 }
 

@@ -370,6 +370,12 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.text()).toContain('articles')
     expect(wrapper.text()).toContain('about')
 
+    // 5. Tab autocomplete sub-command: "sudo " -> "sudo su"
+    await input.setValue('sudo ')
+    await input.trigger('keydown', { key: 'Tab' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('sudo su')
+
     wrapper.unmount()
   })
 
