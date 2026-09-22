@@ -1,0 +1,172 @@
+---
+name: "jiangyy.github.io Design System"
+version: "alpha"
+description: "Extracted visual reference. Tokens are measured samples; semantic roles require context. Unobserved values are omitted."
+colors:
+  primary: "rgb(46, 51, 56)"
+  surface: "rgb(250, 250, 250)"
+rounded:
+  sample-1: "0px"
+spacing:
+  sample-1: "0px"
+---
+
+**How to use this file:** Read this extracted design system before building a new page. Preserve the observed visual identity while composing for the new reader's task and content. Keep supplied facts, the host framework, and accessibility requirements intact. This is a sampled reference, not an official brand specification or a fixed page template.
+
+**Evidence priority:** The frontmatter contains conservative measured samples; its token values take precedence over visual estimates. Semantic roles are inferred from the sampled elements and must be checked against their context. Missing tokens, states, themes and breakpoints are unknown, not defaults. Existing host components remain the implementation foundation unless a verified public stylesheet/API is explicitly provided.
+
+## Overview
+原站「~jyy: index」是南京大学计算机系蒋炎岩老师的学术个人主页。受众主要是计算机系学生、学术同行、研究人员以及对操作系统/系统软件和 AI Agent 领域感兴趣的技术访客。读者的核心任务是了解学者身份履历、查阅学术论文（Papers）、加入研究小组（Team）、访问课程 Wiki 以及通过社交链接（知乎、小红书）联系学者。
+
+适用范围与限制：本分析基于 1440x900 桌面视口下的浅色交互式终端页面，结合 1 张实测高分辨率截图与 DOM/CSS 分析。该站最极端而惊艳的特征是整站就是一个可交互的 Web 终端（xterm.js 渲染）。适用场景：极客学者主页、极客个人网站、带内置 CLI 工具箱的开发者主页；局限在于该站重度依赖前端 JavaScript 终端模拟器，普通 HTML 语义标签极少，对于长篇富文本排版和普通读者而言有一定操作门槛。
+
+核心设计决策：
+1. 真实运行的 Shell 终端体验：整站主体并非静态 HTML 排版，而是直接运行 xterm.js 交互式终端。读者既可以直接阅读静态打印的履历与论文链接，也可以在底部提示符键入指令（如 bio、help、tree bin/ 等）进行探索。复用规则：将知识库的搜索框或主交互区直接抽象为一个原生轻量终端，支持命令直达与内容打印。
+2. 学术复古像素标题与点阵质感：页面核心视觉锚点为大号点阵像素字体渲染的「Yanyan Jiang」学术名字标头，结合浅色微纹理背景，产生早期学术工作站（如 NeXT / X11）的经典学者风范。复用规则：主标题使用复古点阵位图字体或大号等宽粗体。
+3. 纯文本行式排版与 ANSI 调色：内容全数以字符流、表格树状图（tree）及 ANSI 颜色高亮呈现。复用规则：避免常规的现代卡片网格，以纯文本行缩进和符号引导构成信息层级。
+
+## Colors
+原站采用了专为终端输出调优的复古浅色主题，并内置了一套标准 16 色 ANSI 终端色板。
+
+- 页面基底色（colors.surface）：精确值为 rgb(250, 250, 250)（#fafafa），作为终端画布的极浅米白背景，带有极细微的水平行高扫描线质感。
+- 主前景色（colors.primary）：精确值为 rgb(46, 51, 56)（#2e3338），作为终端默认字符输出的主色，呈现温润、不刺眼的炭灰色。
+- 强调色（ANSI 终端高亮）：通过 ANSI 色系建立语义色彩。例如顶部学者名与邮箱链接使用沉着亮蓝色（#3465a4 / #729fcf），重要提示与警示使用砖红色（#cc0000），绿字（#4e9a06）用于状态与路径提示。
+- 选区高亮色（xterm-selection）：实测使用浅蓝灰色（#d0d7de），模拟桌面操作系统的字符选中文本高亮。
+- 光标色彩：实测光标色为 #4a5158，配合动画呈现闪烁的方块（block）或下划线（underline）。
+
+## Typography
+排版系统高度依赖高质量编程等宽字体栈，整站由 xterm.js 统一接管字符字阶。
+
+- 字体栈：首选 "Maple Mono"，后备依次包含 "Fira Code"、"JetBrains Mono"、"SFMono-Regular"、ui-monospace、Menlo、Consolas 以及兜底 monospace；中文字体栈包含 "PingFang SC"、"Microsoft YaHei"、"Noto Sans CJK SC"。确保连字、等宽以及多语言代码字符的优良渲染。
+- 字号层级：在终端视窗内部，默认字符基准字号为 16px，行内字符保持严密的等宽网格单元；而顶部标题「Yanyan Jiang」则采用多倍率点阵字符拼接或特殊像素位图呈现（视觉高度约 64px-80px）。
+- 字体修饰与字重：通过 ANSI 语法定义 bold（加粗）、dim（50% 半透明弱化）、italic（斜体）。例如座右铭句子采用斜体弱化，强调学术沉思感；链接名称采用粗体。
+
+## Layout
+布局极其纯粹，遵循单视口纸张 / 终端视窗布局。
+
+- 居中纸张容器：全站内容约束在一个居中的类纸张容器中，带圆角与微边框，背景带有水平细条纹网格，仿佛实验室打印机打印出的技术清单或终端工作站屏幕。
+- 垂直字符流：布局无复杂的悬浮侧边栏或汉堡菜单，所有信息按自上而下的命令输出流排布：学者抬头 -> 像素名牌 -> 职称与单位 -> 核心链接清单 -> 物理地址 -> 研究理念 -> Shell 说明 -> 实时终端交互行。
+- 行首缩进与垂直指引：引用块通过单字符竖线（|）在行首建立缩进区域，规整划分个人简介与办公地址。
+
+## Elevation & Depth
+页面整体呈现彻底的零装饰阴影（flat surface），依靠视窗容器建立层级。
+
+- 阴影实测：采样数据中 shadow 级别为 none，文字与终端内容无任何 box-shadow。
+- 容器边界：中央纸张视窗拥有极纤细的边框与极轻微的边界描边，将终端字符区与浏览器外层视口隔离开来，营造独立的机器控制台隐喻。
+- 层次构建：不采用现代浮动卡片或悬浮阴影，而是依靠终端文本自身的排版空行、字符分割及闪烁光标形成注意力焦点。
+
+## Shapes
+形态系统高度契合终端字符网格。
+
+- 圆角规格：除中央承载终端的主视窗容器四角带有微圆角（约 4px-8px）外，终端内所有文本单元、光标、输入行 rounded 均为 0px 直角。
+- 图标体系：完全摒弃任何外部 SVG 图标库，直接在等宽行流中嵌入原生 Emoji 图标（如 👤 Bio、📚 Papers、👥 Team、🧭 Wiki、📰 Zhihu、📕 Rednote），色彩克制且天然与文本高度对齐。
+- 链接修饰线：超链接采用别致的波浪下划线（wavy/squiggled underline），生动模拟手写批注或代码拼写检查效果。
+
+## Components
+原站核心组件均深度结合了终端环境特性。
+
+### Available foundations
+原站以 xterm.js 终端模拟引擎为核心渲染基础。复用时若不引入重量级 xterm.js，也可以借助现代前端框架（如 Vue3）配合原生 DOM + pre 标签，通过 CSS 实现等宽字符网格、闪烁光标与命令行交互输入。
+
+### 交互式终端输入行（Interactive Shell Line）
+- 用途：全站最具特色的核心交互，允许用户输入内置命令直接驱动站点逻辑。
+- 构成：左侧为 Unix 风格路径提示符（jyy:/$），右侧为输入缓冲区与周期闪烁的光标（cursor-blink）。
+- 状态与行为：支持敲击键盘执行帮助（help）、论文列表、联系方式等命令。
+
+### 像素点阵学者标头（Pixel Headline）
+- 用途：全站第一视觉锚点，建立鲜明硬核的极客学者第一印象。
+- 特征：超大尺寸纯黑像素化艺术字，规避了现代无衬线字体的同质化。
+
+### 终端内联超链接（Terminal Hyperlink）
+- 用途：指向外部学术页面、PDF 论文与社交平台。
+- 特征：带有波浪下划线，前置 Emoji 图标，鼠标悬浮呈现下划线加深状态。
+
+### Signature elements
+1. 可执行 Shell 页面隐喻：将个人主页同时作为一台在线 Unix 虚拟机的 Shell，让读者通过探索文件系统（tree bin/）和执行命令来了解博主。纯文本环境下可直接适配为命令补全交互框。
+2. 波浪下划线与 Emoji 符号组合：通过等宽 Emoji 配合波浪下划线，创造出既有终端科技感又兼顾学术亲和力的微交互。
+
+## Do's and Don'ts
+针对本站风格的复用与扩展，请遵循以下执行准则：
+
+- Do: 首选 Maple Mono、Fira Code 或 JetBrains Mono 等支持代码连字的高品质编程等宽字体。验收条件：检查主界面的 fontFamily 严格继承编程字体栈，中英文字符在垂直与水平网格上严密对齐。
+- Don't: 切勿在终端区域引入任何现代圆角毛玻璃卡片或悬浮动效。验收条件：终端内部区域没有任何 backdrop-filter 或复杂的 box-shadow。
+- Do: 为搜索或交互区域提供直观的终端指令提示符（如 user:/$）与闪烁光标。验收条件：界面提供可接收键盘输入的实时光标反馈。
+- Don't: 切勿使用复杂的外部彩色 SVG 图标破坏纯文本排版秩序。验收条件：所有小图标直接采用原生 Emoji 或 ASCII 符号，保持字符行高稳定。
+- Do: 采用低饱和度的 ANSI 调色板进行文字加亮（如复古终端蓝、终端绿）。验收条件：强调文字颜色必须对标 ANSI 16 色系标准，杜绝刺眼的高饱和现代荧光色。
+- Don't: 切勿让移动端小屏幕直接截断长命令行或宽表格。验收条件：在窄屏下终端字符容器必须具备可平滑横向拖拽的溢出滚动能力，或自动折行保持语义连贯。
+
+### Verification
+在将本规范引入工程时，需按以下步骤核查：
+1. 终端光标无障碍：确保自定义终端输入框支持 Tab 键聚焦，且具备标准的无障碍可访问属性（aria-label）。
+2. 背景对比度：检查 #2e3338 文字在 #fafafa 底色上的对比度（实测达到 11:1 以上），符合 WCAG AA/AAA 标准。
+3. 字符网格溢出测试：在各种不同设备视口测试等宽排版，确认字符没有产生重叠或非预期裁切。
+
+Agent 指令说明：
+后续执行开发任务的 Agent 在基于本规范实现新页面时，应以终端输入流（Command & Output）作为核心信息组织逻辑。重点关注等宽字符网格、终端提示符与复古像素/字符质感，让用户在访问知识库与博客时获得如同在 Linux 控制台中操作的沉浸式极客体验。
+
+### Implementation checks
+- Preserve the observed font families and palette, including common fonts or gradients when they belong to the source. Do not substitute a new aesthetic.
+- Preserve supplied facts and units. Give each section a reader task; adapt composition without losing the documented style relationships.
+- Verify keyboard focus, text contrast, meaningful source order and narrow-screen reflow. Treat these as implementation requirements, not claims that the source was tested.
+- Load only needed assets, preserve their aspect ratios, and respect reduced-motion preferences when adding observed motion.
+- For repeat work, save the content, model, viewport and first render. Compare with/without this file under matching conditions; turn recurring corrections into scoped prose rules, shared CSS or deterministic checks.
+
+### Token evidence
+- colors.primary: {"selector": "body", "role": "sampled foreground; not necessarily brand accent"}
+- colors.surface: {"selector": "body", "role": "body background; may be transparent"}
+
+## Evidence Appendix
+
+Sampling summary only. Heuristic roles and flattened color summaries below are not normative tokens; retain the exact values and alpha in the frontmatter. This snapshot does not establish unobserved states, themes or viewport behavior.
+
+### 工程 CSS 证据
+
+由实时 DOM computed styles 压缩生成。这里只保留高频 token 与设计意图，不输出原始 CSS 清单。
+
+#### 压缩设计 Token
+
+**Mode:** light
+
+##### 色彩角色
+- **color.text.primary:** #2e3338 (1)
+- **color.text.secondary:** #2e3338 (1)
+- **color.surface.base:** #fafafa (1)
+- **color.accent:** #2e3338 (2)
+- **color.border.default:** #2e3338 (1)
+- **color.focus.ring:** #2e3338 (1)
+
+##### 字体角色
+- **font.family.primary:** Maple Mono (1)
+- **font.size.display:** 16px (1)
+- **font.size.body:** 16px (1)
+- **font.size.label:** 16px (1)
+- **ratio:** display is 1.0x body
+
+##### 间距节奏
+- **base unit:** Not enough evidence
+
+##### 圆角角色
+- 证据不足
+
+##### 阴影意图
+- **level:** none
+- **usage:** 0
+- **note:** flat surfaces dominate
+
+##### 动效意图
+- **level:** none
+- **range:** Not enough evidence
+- **common durations:** 证据不足
+- **easing style:** Not enough evidence
+
+#### 差异化实现信号
+
+- Flat surfaces are preferred over decorative depth.
+- Type hierarchy is ratio-driven: display is 1.0x body.
+
+#### 采集诊断
+
+- 从 142 个 DOM 元素中采样了 2 个可见元素。
+- 置信度: low.
+- Low sample size: fewer than 30 visible elements were extracted.
+- Low sample size: fewer than 30 visible elements were extracted.
