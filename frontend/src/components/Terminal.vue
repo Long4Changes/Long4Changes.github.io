@@ -59,6 +59,7 @@ const AVAILABLE_COMMANDS = [
 const role = ref<Role>(getAuthRole())
 const isPasswordMode = ref(false)
 const isComposing = ref(false)
+const compositionBuffer = ref('')
 const passwordPrompt = ref('[sudo] password for guest: ')
 
 const promptStr = computed(() => {
@@ -67,10 +68,26 @@ const promptStr = computed(() => {
 
 function onCompositionStart() {
   isComposing.value = true
+  compositionBuffer.value = ''
+}
+
+function onCompositionUpdate(e: CompositionEvent) {
+  isComposing.value = true
+  compositionBuffer.value = e.data || ''
 }
 
 function onCompositionEnd() {
   isComposing.value = false
+  compositionBuffer.value = ''
+}
+
+function onInput(e: Event) {
+  if (isComposing.value) {
+    const target = e.target as HTMLInputElement
+    if (!compositionBuffer.value && target && target.value.startsWith(inputBuffer.value)) {
+      compositionBuffer.value = target.value.slice(inputBuffer.value.length)
+    }
+  }
 }
 
 async function handleCommand(cmd: string) {
@@ -566,14 +583,16 @@ function focusInput() {
     
     <div class="input-line">
       <span class="prompt">{{ isPasswordMode ? passwordPrompt : promptStr }}</span>
-      <span class="input-display">{{ isPasswordMode ? '*'.repeat(inputBuffer.length) : inputBuffer }}</span>
+      <span class="input-display"><span>{{ isPasswordMode ? '*'.repeat(inputBuffer.length) : inputBuffer }}</span><span v-if="compositionBuffer" class="composition-preview">{{ isPasswordMode ? '*'.repeat(compositionBuffer.length) : compositionBuffer }}</span></span>
       <span class="cursor" :class="{ 'inactive': !isActive }">█</span>
       <input
         :type="isPasswordMode ? 'password' : 'text'"
         class="hidden-input"
         v-model="inputBuffer"
+        @input="onInput"
         @keydown="onKeyDown"
         @compositionstart="onCompositionStart"
+        @compositionupdate="onCompositionUpdate"
         @compositionend="onCompositionEnd"
         ref="inputElement"
         autocomplete="off"
@@ -625,6 +644,12 @@ function focusInput() {
 
 .input-display {
   white-space: pre;
+}
+
+.composition-preview {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  opacity: 0.85;
 }
 
 .cursor {

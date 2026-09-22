@@ -98,4 +98,62 @@ describe('Reproduce Bug Symptoms: Chinese IME Input & Password Authentication', 
     expect(wrapper.text()).not.toContain('backend service not configured')
     expect(wrapper.text()).toContain('Authentication successful')
   })
+
+  it('REPRO 4: Chinese IME composition - previewing english pinyin on screen before candidate selection', async () => {
+    const wrapper = mount(Terminal, {
+      props: {
+        catalog: ['ark', 'articles'],
+        isActive: true
+      }
+    })
+    const input = wrapper.find('input')
+
+    // Simulate user typing Chinese Pinyin e.g. "ceshi" (测试)
+    await input.trigger('compositionstart')
+    await input.trigger('compositionupdate', { data: 'ceshi' })
+    await flushPromises()
+
+    // During composition, the user expects to see the typed pinyin letters on the screen
+    const inputDisplay = wrapper.find('.input-display')
+    expect(inputDisplay.text()).toContain('ceshi')
+
+    // When candidate is selected (e.g. "测试" chosen):
+    // 1. compositionend fires
+    // 2. input value updates with "测试"
+    await input.trigger('compositionend', { data: '测试' })
+    await input.setValue('测试')
+    await flushPromises()
+
+    // The composition preview disappears and the confirmed Chinese text takes its place
+    expect(inputDisplay.text()).toBe('测试')
+    expect(wrapper.find('.composition-preview').exists()).toBe(false)
+  })
+
+  it('REPRO 5: Password mode must mask composition preview and not leak plain text', async () => {
+    const wrapper = mount(Terminal, {
+      props: {
+        catalog: ['ark'],
+        isActive: true
+      }
+    })
+    const input = wrapper.find('input')
+
+    // Enter sudo su to enter password mode
+    await input.setValue('sudo su')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    // Start composition while in password mode
+    await input.trigger('compositionstart')
+    await input.trigger('compositionupdate', { data: 'secret' })
+    await flushPromises()
+
+    const inputDisplay = wrapper.find('.input-display')
+    // Plain text "secret" MUST NOT appear
+    expect(inputDisplay.text()).not.toContain('secret')
+    // Masked asterisks should appear
+    expect(inputDisplay.text()).toContain('******')
+  })
 })
+
+
