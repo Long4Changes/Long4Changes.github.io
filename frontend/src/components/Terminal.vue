@@ -209,7 +209,6 @@ async function handleCommand(cmd: string) {
         response: 'Usage: ask <question>'
       })
     } else {
-      const itemIndex = history.value.length
       const ragItem: HistoryItem = {
         prompt: currentPrompt,
         command: trimmedCmd,
@@ -223,30 +222,22 @@ async function handleCommand(cmd: string) {
 
       await askQuestionStream(question, {
         onToken(token: string) {
-          if (history.value[itemIndex]) {
-            history.value[itemIndex].ragContent = (history.value[itemIndex].ragContent || '') + token
-            scrollToBottom()
-          }
+          ragItem.ragContent = (ragItem.ragContent || '') + token
+          scrollToBottom()
         },
         onCitations(citations: CitationItem[]) {
-          if (history.value[itemIndex]) {
-            history.value[itemIndex].citations = citations
-            scrollToBottom()
-          }
+          ragItem.citations = citations
+          scrollToBottom()
         },
         onDone() {
-          if (history.value[itemIndex]) {
-            history.value[itemIndex].isStreaming = false
-            scrollToBottom()
-          }
+          ragItem.isStreaming = false
+          scrollToBottom()
         },
         onError(err: Error) {
-          if (history.value[itemIndex]) {
-            history.value[itemIndex].isStreaming = false
-            history.value[itemIndex].type = 'error'
-            history.value[itemIndex].response = `RAG Error: ${err.message || 'Stream failed'}`
-            scrollToBottom()
-          }
+          ragItem.isStreaming = false
+          ragItem.type = 'error'
+          ragItem.response = `RAG Error: ${err.message || 'Stream failed'}`
+          scrollToBottom()
         }
       })
     }

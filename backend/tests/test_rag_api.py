@@ -27,8 +27,8 @@ def mock_data():
     )
     priv_doc = Document(
         id=2,
-        slug="secret-notes",
-        title="Secret Notes",
+        slug="secret-doc",
+        title="Secret Spec",
         content="Master deploy key: sk_live_99887766.",
         visibility="private",
         created_at=datetime.now(timezone.utc),
@@ -65,6 +65,7 @@ def test_prompt_engineering_and_citations():
     assert len(prompts) == 2
     assert prompts[0]["role"] == "system"
     assert "strictly and solely in the provided Reference Context" in prompts[0]["content"]
+    assert "Explicitly insert inline citation markers" in prompts[0]["content"]
     assert prompts[1]["role"] == "user"
     assert "Ark Guide" in prompts[1]["content"]
 
@@ -107,7 +108,7 @@ async def test_ask_guest_streaming_public_only(mock_data):
         assert len(citations_data) > 0
         for cite in citations_data:
             assert cite["visibility"] == "public"
-            assert cite["slug"] != "secret-notes"
+            assert cite["slug"] != "secret-doc"
 
     app.dependency_overrides.clear()
 

@@ -311,6 +311,8 @@ export async function askQuestionStream(
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEvent = ''
+      let isCompleted = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -319,10 +321,12 @@ export async function askQuestionStream(
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
-        let currentEvent = ''
         for (const line of lines) {
           const trimmed = line.trim()
-          if (!trimmed) continue
+          if (!trimmed) {
+            currentEvent = ''
+            continue
+          }
           if (trimmed.startsWith('event:')) {
             currentEvent = trimmed.slice(6).trim()
           } else if (trimmed.startsWith('data:')) {
@@ -342,7 +346,10 @@ export async function askQuestionStream(
                 }
               } catch {}
             } else if (currentEvent === 'done' || dataStr === '[DONE]') {
-              callbacks.onDone()
+              if (!isCompleted) {
+                isCompleted = true
+                callbacks.onDone()
+              }
             } else if (currentEvent === 'error') {
               try {
                 const parsed = JSON.parse(dataStr)
@@ -355,7 +362,9 @@ export async function askQuestionStream(
         }
       }
 
-      callbacks.onDone()
+      if (!isCompleted) {
+        callbacks.onDone()
+      }
       return
     } catch (err: any) {
       callbacks.onError(err)

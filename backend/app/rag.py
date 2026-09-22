@@ -20,7 +20,7 @@ async def retrieve_rag_context(
     db: AsyncSession,
     limit: int = 4
 ) -> List[Dict[str, Any]]:
-    """Retrieve top-k relevant chunks matching query and caller role permissions."""
+    """Retrieve top-k relevant chunks matching query filtered by caller Role and Document Visibility."""
     query_embeddings = get_embeddings([query])
     if not query_embeddings or not query_embeddings[0]:
         return []
@@ -75,7 +75,7 @@ def extract_citations(chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     return citations
 
 def build_rag_prompts(query: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    """Construct system prompt and user prompt strictly grounded in retrieved chunks."""
+    """Construct system prompt and user prompt strictly grounded in retrieved chunks with citation markers."""
     system_prompt = (
         "You are the CyberKB Terminal Knowledge Assistant.\n"
         "Your task is to provide an accurate, concise, and professional answer to the user's question, "
@@ -84,8 +84,9 @@ def build_rag_prompts(query: str, chunks: List[Dict[str, Any]]) -> List[Dict[str
         "1. If the provided context does not contain enough information to answer the question, clearly state that "
         "the knowledge base does not contain this information.\n"
         "2. Do not invent or assume facts not present in the reference context.\n"
-        "3. Reply in Chinese by default unless the question explicitly asks for another language.\n"
-        "4. Format any technical content cleanly using monospace conventions."
+        "3. Explicitly insert inline citation markers (e.g., [1] or [ark]) immediately following facts derived from reference chunks.\n"
+        "4. Reply in Chinese by default unless the question explicitly asks for another language.\n"
+        "5. Format any technical content cleanly using monospace conventions."
     )
 
     if not chunks:
