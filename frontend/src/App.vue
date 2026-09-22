@@ -50,6 +50,16 @@ async function handleAuthChange(newRole: Role) {
   }
 }
 
+function handleRenameDocument(oldSlug: string, newSlug: string) {
+  const idx = catalog.value.indexOf(oldSlug)
+  if (idx !== -1) {
+    catalog.value[idx] = newSlug
+  }
+  if (activeSlug.value === oldSlug) {
+    activeSlug.value = newSlug
+  }
+}
+
 onMounted(() => {
   loadCatalog()
 })
@@ -65,6 +75,7 @@ onMounted(() => {
           :catalog="catalog"
           @open="handleOpenSlug"
           @auth-change="handleAuthChange"
+          @rename-document="handleRenameDocument"
           :isActive="!isWindowOpen"
         />
       </div>

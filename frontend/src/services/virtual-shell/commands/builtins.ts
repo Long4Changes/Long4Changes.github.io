@@ -112,6 +112,106 @@ export const manCommand: ShellCommand = {
   }
 }
 
+export const mvCommand: ShellCommand = {
+  name: 'mv',
+  description: 'move (rename) files',
+  usage: 'mv [options] <source> <destination>',
+  execute: (ctx: ShellContext): CommandResult => {
+    const rawArgs = ctx.args || []
+    const isVerbose = rawArgs.includes('-v') || rawArgs.includes('--verbose')
+    const isHelp = rawArgs.includes('--help') || rawArgs.includes('-h')
+
+    if (isHelp) {
+      return {
+        output: `Usage: mv [OPTION]... SOURCE DEST\nRename SOURCE to DEST, or move SOURCE to DIRECTORY.\n\nOptions:\n  -v, --verbose   explain what is being done\n  --help          display this help and exit\n\nType 'tldr mv' for simplified cheat sheets.`
+      }
+    }
+
+    const posArgs = rawArgs.filter(a => !a.startsWith('-'))
+
+    if (posArgs.length === 0) {
+      return {
+        output: "mv: missing file operand\nTry 'tldr mv' for more information.",
+        type: 'error'
+      }
+    }
+
+    if (posArgs.length === 1) {
+      return {
+        output: `mv: missing destination file operand after '${posArgs[0]}'\nTry 'tldr mv' for more information.`,
+        type: 'error'
+      }
+    }
+
+    const source = posArgs[0]
+    const destination = posArgs[1]
+
+    let resolvedSrc = vfs.resolvePath(ctx.cwd, source, ctx.catalog)
+    // Also support finding slug in catalog if source is without /docs
+    if (!resolvedSrc && ctx.catalog && ctx.catalog.includes(source.replace(/\.md$/, ''))) {
+      resolvedSrc = `/docs/${source.replace(/\.md$/, '')}.md`
+    }
+
+    if (!resolvedSrc) {
+      return {
+        output: `mv: cannot stat '${source}': No such file or directory`,
+        type: 'error'
+      }
+    }
+
+    if (ctx.role !== 'root') {
+      return {
+        output: `mv: cannot move '${source}' to '${destination}': Permission denied`,
+        type: 'error'
+      }
+    }
+
+    if (resolvedSrc.startsWith('/bin') || resolvedSrc.startsWith('/etc')) {
+      return {
+        output: `mv: cannot move '${source}': Read-only file system (system files are immutable)`,
+        type: 'error'
+      }
+    }
+
+    if (vfs.isDir(resolvedSrc)) {
+      return {
+        output: `mv: cannot move '${source}': Device or resource busy`,
+        type: 'error'
+      }
+    }
+
+    // Process document renaming
+    const oldFilename = resolvedSrc.split('/').pop() || ''
+    const oldSlug = oldFilename.replace(/\.md$/, '')
+
+    let destFilename = destination.trim().split('/').pop() || destination.trim()
+    if (!destFilename || destination.endsWith('/')) {
+      destFilename = oldFilename
+    }
+    const destSlug = destFilename.replace(/\.md$/, '')
+
+    if (oldSlug === destSlug && destination === source) {
+      return {
+        output: `mv: '${source}' and '${destination}' are the same file`,
+        type: 'error'
+      }
+    }
+
+    if (ctx.catalog) {
+      const idx = ctx.catalog.indexOf(oldSlug)
+      if (idx !== -1) {
+        ctx.catalog[idx] = destSlug
+      }
+    }
+
+    ctx.renameDocument?.(oldSlug, destSlug)
+
+    return {
+      output: isVerbose ? `renamed '${source}' -> '${destination}'` : ''
+    }
+  }
+}
+
 export const builtinCommands: ShellCommand[] = [
   whoamiCommand,
   pwdCommand,
@@ -121,5 +221,6 @@ export const builtinCommands: ShellCommand[] = [
   uptimeCommand,
   echoCommand,
   historyCommand,
-  manCommand
+  manCommand,
+  mvCommand
 ]

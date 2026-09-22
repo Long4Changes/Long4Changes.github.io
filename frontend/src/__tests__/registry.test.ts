@@ -61,4 +61,18 @@ describe('ShellRegistry and Dispatcher', () => {
     const autoCd = defaultShellRegistry.getAutocomplete('cd /do', baseContext)
     expect(autoCd.matches).toContain('cd /docs')
   })
+
+  it('provides autocomplete candidates for mv and tldr mv', () => {
+    const autoM = defaultShellRegistry.getAutocomplete('m', baseContext)
+    expect(autoM.matches).toContain('mv')
+    expect(autoM.matches).toContain('man')
+
+    const autoTldr = defaultShellRegistry.getAutocomplete('tldr m', baseContext)
+    expect(autoTldr.matches).toContain('tldr mv')
+    expect(autoTldr.matches).toContain('tldr man')
+
+    const autoMvSlug = defaultShellRegistry.getAutocomplete('mv ar', baseContext)
+    expect(autoMvSlug.matches).toContain('mv ark')
+    expect(autoMvSlug.matches).toContain('mv articles')
+  })
 })

@@ -250,6 +250,18 @@ export async function fetchDocument(slug: string): Promise<DocumentDetail> {
   throw new Error(`Document '${slug}' not found.`)
 }
 
+export function renameDocument(oldSlug: string, newSlug: string) {
+  if (FALLBACK_DOCUMENTS[oldSlug]) {
+    const orig = FALLBACK_DOCUMENTS[oldSlug]
+    FALLBACK_DOCUMENTS[newSlug] = {
+      ...orig,
+      slug: newSlug,
+      title: orig.title.includes(oldSlug) ? orig.title.replace(oldSlug, newSlug) : orig.title
+    }
+    delete FALLBACK_DOCUMENTS[oldSlug]
+  }
+}
+
 export async function searchDocuments(query: string, limit: number = 5): Promise<SearchResultItem[]> {
   if (apiBase) {
     try {

@@ -87,4 +87,72 @@ describe('Builtin Shell Commands', () => {
     const resWithArg = await man.execute({ ...baseContext, args: ['cat'] })
     expect(resWithArg.output).toContain("Type 'tldr <cmd>' for simplified cheatsheets.")
   })
+
+  describe('mv command', () => {
+    it('requires source and destination operands', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const resNoArgs = await mv.execute(baseContext)
+      expect(resNoArgs.output).toContain('missing file operand')
+      expect(resNoArgs.type).toBe('error')
+
+      const resOneArg = await mv.execute({ ...baseContext, args: ['file.txt'] })
+      expect(resOneArg.output).toContain("missing destination file operand after 'file.txt'")
+      expect(resOneArg.type).toBe('error')
+    })
+
+    it('errors on nonexistent source file', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const res = await mv.execute({ ...baseContext, args: ['nonexistent.md', 'dest.md'] })
+      expect(res.output).toContain("cannot stat 'nonexistent.md': No such file or directory")
+      expect(res.type).toBe('error')
+    })
+
+    it('blocks non-root guest execution with permission denied', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const res = await mv.execute({ ...baseContext, role: 'guest', cwd: '/docs', args: ['ark.md', 'new_ark.md'] })
+      expect(res.output).toContain("cannot move 'ark.md' to 'new_ark.md': Permission denied")
+      expect(res.type).toBe('error')
+    })
+
+    it('renames document when executed as root', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const mockCatalog = ['ark', 'articles']
+      const renameDocMock = vi.fn()
+      const res = await mv.execute({
+        ...baseContext,
+        role: 'root',
+        cwd: '/docs',
+        catalog: mockCatalog,
+        args: ['ark.md', 'ark_v2.md'],
+        renameDocument: renameDocMock
+      })
+      expect(res.output).toBe('')
+      expect(mockCatalog).toEqual(['ark_v2', 'articles'])
+      expect(renameDocMock).toHaveBeenCalledWith('ark', 'ark_v2')
+    })
+
+    it('supports -v verbose flag', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const mockCatalog = ['ark', 'articles']
+      const res = await mv.execute({
+        ...baseContext,
+        role: 'root',
+        cwd: '/docs',
+        catalog: mockCatalog,
+        args: ['-v', 'ark.md', 'ark_v2.md']
+      })
+      expect(res.output).toBe("renamed 'ark.md' -> 'ark_v2.md'")
+    })
+
+    it('protects immutable system binaries from being moved', async () => {
+      const mv = builtinCommands.find(c => c.name === 'mv')!
+      const res = await mv.execute({
+        ...baseContext,
+        role: 'root',
+        args: ['/bin/ls', '/home/liangchen/ls']
+      })
+      expect(res.output).toContain('Read-only file system')
+      expect(res.type).toBe('error')
+    })
+  })
 })

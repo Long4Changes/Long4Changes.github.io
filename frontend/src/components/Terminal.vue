@@ -8,6 +8,7 @@ import {
   getAuthRole,
   syncDocuments,
   fetchDocument,
+  renameDocument,
   type SearchResultItem,
   type CitationItem,
   type Role
@@ -35,6 +36,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'open', slug: string): void
   (e: 'auth-change', role: Role): void
+  (e: 'rename-document', oldSlug: string, newSlug: string): void
 }>()
 
 const history = ref<HistoryItem[]>([])
@@ -355,6 +357,10 @@ async function handleCommand(cmd: string) {
       },
       setCwd: (newCwd: string) => {
         cwd.value = newCwd
+      },
+      renameDocument: (oldSlug: string, newSlug: string) => {
+        renameDocument(oldSlug, newSlug)
+        emit('rename-document', oldSlug, newSlug)
       }
     }
     try {

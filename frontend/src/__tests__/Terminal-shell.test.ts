@@ -108,4 +108,16 @@ describe('Terminal with Virtual Shell Integration', () => {
     await flushPromises()
     expect((input.element as HTMLInputElement).value).toContain('bat articles')
   })
+
+  it('handles mv command and blocks guest permissions', async () => {
+    const wrapper = mount(Terminal, {
+      props: { catalog: ['ark', 'articles'], isActive: true }
+    })
+    const input = wrapper.find('input')
+    await input.setValue('mv ark.md ark_new.md')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain("cannot move 'ark.md' to 'ark_new.md': Permission denied")
+  })
 })

@@ -393,7 +393,18 @@ const tldrPages: Record<string, string> = {
   man: `man - Format and display manual pages
 
 - View command manual (delegates to tldr):
-  man <command>`
+  man <command>`,
+
+  mv: `mv - Move and rename files
+
+- Rename a file:
+  mv <source> <destination>
+
+- Move a file into another directory:
+  mv <source> <directory/>
+
+- Move with verbose output:
+  mv -v <source> <destination>`
 }
 
 const tldrCommand: ShellCommand = {
@@ -418,6 +429,7 @@ NAVIGATION & SYSTEM
   echo     - Print arguments to terminal output
   history  - Show shell command execution history
   clear    - Clear terminal screen
+  mv       - Move or rename documents and files
 
 CONTENT & READER
   cat      - Print document contents in plain text

@@ -128,8 +128,8 @@ export class ShellRegistry {
       return { matches, commonPrefix: common, appendSpace: false }
     }
 
-    // Case 3: bat/glow/cat/open <slug>
-    if (['bat', 'glow', 'cat', 'open'].includes(cmdName)) {
+    // Case 3: bat/glow/cat/open/mv <slug>
+    if (['bat', 'glow', 'cat', 'open', 'mv'].includes(cmdName)) {
       const catalog = ctx.catalog || []
       const matches = catalog
         .filter(slug => slug.toLowerCase().startsWith(arg))
