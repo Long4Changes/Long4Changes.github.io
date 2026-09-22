@@ -1,23 +1,33 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Terminal from './components/Terminal.vue'
 import WindowCard from './components/WindowCard.vue'
+import { fetchDocumentCatalog, fetchDocument } from './services/api'
 
 const isWindowOpen = ref(false)
 const activeSlug = ref('')
 const activeContent = ref('')
+const catalog = ref<string[]>(['ark', 'articles', 'about'])
 
-const documents: Record<string, string> = {
-  ark: '# 扁舟\n这是一艘飞船。',
-  articles: '# 文章\n这里是一些文章。',
-  about: '# 关于\n我是博主。'
+async function loadCatalog() {
+  try {
+    const items = await fetchDocumentCatalog()
+    if (items && items.length > 0) {
+      catalog.value = items.map(d => d.slug)
+    }
+  } catch {
+    catalog.value = ['ark', 'articles', 'about']
+  }
 }
 
-function handleOpenSlug(slug: string) {
-  if (documents[slug]) {
-    activeSlug.value = slug
-    activeContent.value = documents[slug]
+async function handleOpenSlug(slug: string) {
+  try {
+    const doc = await fetchDocument(slug)
+    activeSlug.value = doc.slug
+    activeContent.value = doc.content
     isWindowOpen.value = true
+  } catch (err: any) {
+    console.error(`Error opening slug '${slug}':`, err)
   }
 }
 
@@ -26,13 +36,17 @@ function handleCloseWindow() {
   activeSlug.value = ''
   activeContent.value = ''
 }
+
+onMounted(() => {
+  loadCatalog()
+})
 </script>
 
 <template>
   <div class="layout" :class="{ 'split-pane': isWindowOpen }">
     <div class="terminal-pane">
       <Terminal
-        :catalog="Object.keys(documents)"
+        :catalog="catalog"
         @open="handleOpenSlug"
         :isActive="!isWindowOpen"
       />
