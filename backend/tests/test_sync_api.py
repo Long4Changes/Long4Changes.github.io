@@ -15,7 +15,9 @@ from backend.app.sync import (
     verify_github_signature,
     parse_github_push_diff,
     delete_document_by_slug,
-    get_webhook_secret
+    get_webhook_secret,
+    SyncSummary,
+    WebhookSummary
 )
 
 # Enable mock embeddings
@@ -55,13 +57,13 @@ def test_parse_github_push_diff():
         ]
     }
     diff = parse_github_push_diff(payload)
-    assert "content/article1.md" in diff["added"] or "content/article1.md" in diff["modified"]
-    assert "content/article2.md" in diff["modified"]
-    assert "README.md" in diff["modified"]
-    assert "content/deprecated.md" in diff["removed"]
+    assert "content/article1.md" in diff.added or "content/article1.md" in diff.modified
+    assert "content/article2.md" in diff.modified
+    assert "README.md" in diff.modified
+    assert "content/deprecated.md" in diff.removed
     # Non-markdown ignored
-    assert "images/logo.png" not in diff["added"]
-    assert "old.txt" not in diff["removed"]
+    assert "images/logo.png" not in diff.added
+    assert "old.txt" not in diff.removed
 
 @pytest.mark.asyncio
 async def test_webhook_endpoint_unauthorized():
@@ -96,11 +98,11 @@ async def test_webhook_endpoint_success():
     sig = calculate_signature(payload_bytes, secret)
 
     with patch("backend.app.main.process_webhook_diff", new_callable=AsyncMock) as mock_process:
-        mock_process.return_value = {
-            "status": "processed",
-            "updated": ["sample-public"],
-            "removed": ["old-doc"]
-        }
+        mock_process.return_value = WebhookSummary(
+            status="processed",
+            updated=["sample-public"],
+            removed=["old-doc"]
+        )
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -112,11 +114,11 @@ async def test_webhook_endpoint_success():
                     "X-Hub-Signature-256": sig
                 }
             )
-            assert resp.status_code == 200
+            assert resp.status_code == 202
             data = resp.json()
-            assert data["status"] == "processed"
-            assert data["updated"] == ["sample-public"]
-            assert data["removed"] == ["old-doc"]
+            assert data["status"] == "queued"
+            assert "content/sample-public.md" in data["updated"]
+            assert "content/old-doc.md" in data["removed"]
 
 @pytest.mark.asyncio
 async def test_manual_sync_guest_forbidden():
@@ -139,11 +141,11 @@ async def test_manual_sync_guest_forbidden():
 async def test_manual_sync_root_success():
     token_root = create_access_token(role="root")
     with patch("backend.app.main.sync_repository_documents", new_callable=AsyncMock) as mock_sync:
-        mock_sync.return_value = {
-            "status": "synchronized",
-            "synced_documents": ["sample-public", "sample-private"],
-            "total": 2
-        }
+        mock_sync.return_value = SyncSummary(
+            status="synchronized",
+            synced_documents=["sample-public", "sample-private"],
+            total=2
+        )
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -156,3 +158,4 @@ async def test_manual_sync_root_success():
             assert data["status"] == "synchronized"
             assert data["synced_documents"] == ["sample-public", "sample-private"]
             assert data["total"] == 2
+

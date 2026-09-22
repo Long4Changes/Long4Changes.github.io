@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status, Request, Header
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Request, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,10 @@ from backend.app.sync import (
     verify_github_signature,
     parse_github_push_diff,
     process_webhook_diff,
-    sync_repository_documents
+    sync_repository_documents,
+    PushDiff,
+    SyncSummary,
+    WebhookSummary
 )
 
 app = FastAPI(title="CyberKB Terminal API", version="0.3.0")
@@ -223,13 +226,14 @@ class SyncResponse(BaseModel):
     synced_documents: List[str]
     total: int
 
-@app.post("/api/webhook/github", response_model=WebhookResponse)
+@app.post("/api/webhook/github", response_model=WebhookResponse, status_code=status.HTTP_202_ACCEPTED)
 async def github_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
     db: AsyncSession = Depends(get_session)
 ):
-    """GitHub Webhook endpoint to sync repository push changes."""
+    """GitHub Webhook endpoint to trigger asynchronous ingestion pipeline."""
     body_bytes = await request.body()
     if not verify_github_signature(body_bytes, x_hub_signature_256):
         raise HTTPException(
@@ -242,12 +246,13 @@ async def github_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
-    diff = parse_github_push_diff(payload)
-    res = await process_webhook_diff(diff, base_dir="", db=db)
+    diff: PushDiff = parse_github_push_diff(payload)
+    # Trigger asynchronous processing pipeline
+    background_tasks.add_task(process_webhook_diff, diff, db)
     return WebhookResponse(
-        status=res.get("status", "processed"),
-        updated=res.get("updated", []),
-        removed=res.get("removed", [])
+        status="queued",
+        updated=diff.added + diff.modified,
+        removed=diff.removed
     )
 
 @app.post("/api/sync", response_model=SyncResponse)
@@ -262,10 +267,10 @@ async def manual_sync(
             detail="Permission denied: 'sync' requires root administrative privileges"
         )
 
-    res = await sync_repository_documents(db=db)
+    summary: SyncSummary = await sync_repository_documents(db=db)
     return SyncResponse(
-        status=res["status"],
-        synced_documents=res["synced_documents"],
-        total=res["total"]
+        status=summary.status,
+        synced_documents=summary.synced_documents,
+        total=summary.total
     )
 
