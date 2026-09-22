@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlmodel
+sqlalchemy
+asyncpg
+pgvector
+pydantic
+pydantic-settings
+dashscope
+pyyaml
+langchain-text-splitters
+pytest
+pytest-asyncio
+httpx
+pytest-env
