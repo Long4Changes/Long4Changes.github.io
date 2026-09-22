@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
@@ -14,6 +15,7 @@ from backend.app.auth import (
     verify_passkey,
     get_current_role
 )
+from backend.app.rag import stream_rag_answer
 
 app = FastAPI(title="CyberKB Terminal API", version="0.2.0")
 
@@ -180,3 +182,27 @@ async def search_documents(
         )
 
     return SearchResponse(query=q, results=items)
+
+class AskRequest(BaseModel):
+    query: str
+
+@app.post("/api/ask")
+async def ask_question(
+    req: AskRequest,
+    role: str = Depends(get_current_role),
+    db: AsyncSession = Depends(get_session)
+):
+    """RAG Question Answering endpoint streaming tokens and citations via SSE."""
+    if not req.query or not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    generator = stream_rag_answer(req.query.strip(), role, db)
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
