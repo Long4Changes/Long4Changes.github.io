@@ -1,14 +1,17 @@
+export type Visibility = 'public' | 'private'
+export type Role = 'guest' | 'root'
+
 export interface DocumentItem {
   slug: string
   title: string
-  visibility?: string
+  visibility?: Visibility
 }
 
 export interface DocumentDetail {
   slug: string
   title: string
   content: string
-  visibility: string
+  visibility: Visibility
   updated_at?: string
 }
 
@@ -18,7 +21,7 @@ export interface SearchResultItem {
   chunk_index: number
   content: string
   similarity: number
-  visibility?: string
+  visibility?: Visibility
 }
 
 export interface SearchResponse {
@@ -29,10 +32,17 @@ export interface SearchResponse {
 export interface AuthResponse {
   access_token: string
   token_type: string
-  role: string
+  role: Role
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+let apiBase = import.meta.env.VITE_API_URL || ''
+export function setApiBase(url: string) {
+  apiBase = url
+}
+export function getApiBase(): string {
+  return apiBase
+}
+
 const TOKEN_KEY = 'cyberkb_auth_token'
 const ROLE_KEY = 'cyberkb_auth_role'
 
@@ -44,15 +54,15 @@ export function getAuthToken(): string | null {
   }
 }
 
-export function getAuthRole(): 'guest' | 'root' {
+export function getAuthRole(): Role {
   try {
-    return (localStorage.getItem(ROLE_KEY) as 'guest' | 'root') || 'guest'
+    return (localStorage.getItem(ROLE_KEY) as Role) || 'guest'
   } catch {
     return 'guest'
   }
 }
 
-export function setAuthSession(token: string, role: string = 'root') {
+export function setAuthSession(token: string, role: Role = 'root') {
   try {
     localStorage.setItem(TOKEN_KEY, token)
     localStorage.setItem(ROLE_KEY, role)
@@ -70,6 +80,7 @@ export function clearAuthSession() {
   }
 }
 
+// ADR 0001: Only public documents are bundled for offline fallback
 export const FALLBACK_DOCUMENTS: Record<string, DocumentDetail> = {
   ark: {
     slug: 'ark',
@@ -122,20 +133,6 @@ def vector_search(query: str, limit: int = 5):
 - 理念: 简约、确定性、高信息密度。
 `,
     visibility: 'public'
-  },
-  'secret-vault': {
-    slug: 'secret-vault',
-    title: '私有保险箱 (Private Vault)',
-    content: `# 私有归档与内部手记
-
-> [!CAUTION]
-> 机密知识切片：仅限拥有 root 权限的所有者访问。
-
-- 内部部署配置与私钥凭证
-- 个人未公开研究计划与架构草稿
-- 离线知识库全量索引
-`,
-    visibility: 'private'
   }
 }
 
@@ -151,9 +148,9 @@ function getAuthHeaders(): HeadersInit {
 }
 
 export async function loginAuth(passkey: string): Promise<AuthResponse> {
-  if (API_BASE) {
+  if (apiBase) {
     try {
-      const res = await fetch(`${API_BASE}/api/auth`, {
+      const res = await fetch(`${apiBase}/api/auth`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,32 +166,22 @@ export async function loginAuth(passkey: string): Promise<AuthResponse> {
       if (res.status === 401) {
         throw new Error('Invalid administrative passkey.')
       }
+      throw new Error(`Authentication error (status ${res.status})`)
     } catch (err: any) {
       if (err.message && err.message.includes('Invalid administrative passkey')) {
         throw err
       }
-      // Fallback
+      throw new Error(`Authentication failed: ${err.message || 'backend unreachable'}`)
     }
   }
 
-  // Local fallback auth
-  if (passkey === 'cyberkb-root-secret' || passkey === 'owner123') {
-    const authData: AuthResponse = {
-      access_token: 'mock-root-jwt-token-2026',
-      token_type: 'bearer',
-      role: 'root'
-    }
-    setAuthSession(authData.access_token, authData.role)
-    return authData
-  }
-
-  throw new Error('Invalid administrative passkey.')
+  throw new Error('Authentication failed: backend service not configured.')
 }
 
 export async function fetchDocumentCatalog(): Promise<DocumentItem[]> {
-  if (API_BASE) {
+  if (apiBase) {
     try {
-      const res = await fetch(`${API_BASE}/api/documents`, {
+      const res = await fetch(`${apiBase}/api/documents`, {
         headers: getAuthHeaders()
       })
       if (res.ok) {
@@ -208,54 +195,52 @@ export async function fetchDocumentCatalog(): Promise<DocumentItem[]> {
     }
   }
 
-  const role = getAuthRole()
-  return Object.values(FALLBACK_DOCUMENTS)
-    .filter(d => role === 'root' || d.visibility === 'public')
-    .map(d => ({
-      slug: d.slug,
-      title: d.title,
-      visibility: d.visibility
-    }))
+  return Object.values(FALLBACK_DOCUMENTS).map(d => ({
+    slug: d.slug,
+    title: d.title,
+    visibility: d.visibility
+  }))
 }
 
 export async function fetchDocument(slug: string): Promise<DocumentDetail> {
-  if (API_BASE) {
+  if (apiBase) {
     try {
-      const res = await fetch(`${API_BASE}/api/documents/${encodeURIComponent(slug)}`, {
+      const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(slug)}`, {
         headers: getAuthHeaders()
       })
       if (res.ok) {
         return await res.json()
       }
       if (res.status === 403) {
-        throw new Error(`Permission denied: '${slug}' is a private document. Run 'sudo su' or 'auth' to authenticate.`)
+        throw new Error(`Visibility restricted: '${slug}' is private. Run 'sudo su' or 'auth' to authenticate.`)
       }
       if (res.status === 404) {
-        throw new Error(`Document '${slug}' not found.`)
+        if (!FALLBACK_DOCUMENTS[slug]) {
+          throw new Error(`Document '${slug}' not found.`)
+        }
       }
     } catch (err: any) {
-      if (err.message && (err.message.includes('Permission denied') || err.message.includes('not found'))) {
+      if (
+        err.message &&
+        (err.message.includes('Visibility restricted') || err.message.includes('not found'))
+      ) {
         throw err
       }
-      // Fallback
+      // Fallback if network failed
     }
   }
 
-  const role = getAuthRole()
   const fallback = FALLBACK_DOCUMENTS[slug]
   if (fallback) {
-    if (fallback.visibility === 'private' && role !== 'root') {
-      throw new Error(`Permission denied: '${slug}' is a private document. Run 'sudo su' or 'auth' to authenticate.`)
-    }
     return fallback
   }
   throw new Error(`Document '${slug}' not found.`)
 }
 
 export async function searchDocuments(query: string, limit: number = 5): Promise<SearchResultItem[]> {
-  if (API_BASE) {
+  if (apiBase) {
     try {
-      const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`
+      const url = `${apiBase}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`
       const res = await fetch(url, {
         headers: getAuthHeaders()
       })
@@ -268,14 +253,10 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
     }
   }
 
-  const role = getAuthRole()
   const qLower = query.toLowerCase()
   const results: SearchResultItem[] = []
 
   for (const doc of Object.values(FALLBACK_DOCUMENTS)) {
-    if (doc.visibility === 'private' && role !== 'root') {
-      continue
-    }
     if (doc.title.toLowerCase().includes(qLower) || doc.content.toLowerCase().includes(qLower)) {
       const excerpt = doc.content.slice(0, 120).replace(/\n/g, ' ') + '...'
       results.push({
@@ -283,7 +264,7 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
         title: doc.title,
         chunk_index: 0,
         content: excerpt,
-        similarity: doc.visibility === 'private' ? 0.95 : 0.88,
+        similarity: 0.88,
         visibility: doc.visibility
       })
     }

@@ -1,11 +1,13 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import App from '../App.vue'
-import { clearAuthSession } from '../services/api'
+import { clearAuthSession, setApiBase } from '../services/api'
 
 describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     clearAuthSession()
+    setApiBase('')
   })
 
   it('renders Terminal and executes help, ls, and clear commands', async () => {
@@ -29,14 +31,13 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.text()).toContain('logout')
     expect(wrapper.text()).toContain('search <query>')
 
-    // Test ls command (guest only sees public docs)
+    // Test ls command
     await input.setValue('ls')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
     expect(wrapper.text()).toContain('ark')
     expect(wrapper.text()).toContain('articles')
     expect(wrapper.text()).toContain('about')
-    expect(wrapper.text()).not.toContain('secret-vault')
     
     // Test clear command
     await input.setValue('clear')
@@ -74,7 +75,16 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     wrapper.unmount()
   })
 
-  it('blocks guest from opening private documents', async () => {
+  it('blocks guest from opening private documents and preserves terminal state', async () => {
+    setApiBase('http://localhost:8000')
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+      const u = String(url)
+      if (u.includes('/api/documents/secret-vault')) {
+        return new Response(JSON.stringify({ detail: "Document 'secret-vault' is private." }), { status: 403 })
+      }
+      return new Response(JSON.stringify({ documents: [] }), { status: 200 })
+    })
+
     const wrapper = mount(App)
     const input = wrapper.find('input')
 
@@ -84,11 +94,59 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
 
     // WindowCard must NOT be opened
     expect(wrapper.find('.window-pane').exists()).toBe(false)
-    // Terminal shows permission denied error
-    expect(wrapper.text()).toContain("Permission denied: 'secret-vault' is a private document")
+    // Terminal shows visibility restriction error
+    expect(wrapper.text()).toContain("Visibility restricted: 'secret-vault' is private")
   })
 
   it('handles sudo su password authentication, prompt switch to root, private search, and logout', async () => {
+    setApiBase('http://localhost:8000')
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      const u = String(url)
+      if (u.includes('/api/auth')) {
+        const body = JSON.parse(init?.body || '{}')
+        if (body.passkey === 'correct-secret') {
+          return new Response(JSON.stringify({
+            access_token: 'test-root-token',
+            token_type: 'bearer',
+            role: 'root'
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ detail: 'Invalid administrative passkey' }), { status: 401 })
+      }
+
+      if (u.includes('/api/search')) {
+        return new Response(JSON.stringify({
+          query: 'secret',
+          results: [
+            {
+              slug: 'secret-vault',
+              title: '私有保险箱',
+              chunk_index: 0,
+              content: '机密知识切片',
+              similarity: 0.95,
+              visibility: 'private'
+            }
+          ]
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+
+      if (u.includes('/api/documents/secret-vault')) {
+        return new Response(JSON.stringify({
+          slug: 'secret-vault',
+          title: '私有保险箱',
+          content: '# 机密知识切片\n仅限 root 访问。',
+          visibility: 'private',
+          updated_at: '2026-09-22T00:00:00Z'
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+
+      if (u.includes('/api/documents')) {
+        return new Response(JSON.stringify({ documents: [] }), { status: 200 })
+      }
+
+      return new Response(JSON.stringify({}), { status: 404 })
+    })
+
     const wrapper = mount(App, { attachTo: document.body })
     const input = wrapper.find('input')
 
@@ -100,7 +158,7 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     // Prompt switches to password prompt
     expect(wrapper.text()).toContain('[sudo] password for guest:')
 
-    // 2. Submit wrong password
+    // 2. Submit wrong password (401 from backend)
     await input.setValue('wrong-password')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -108,12 +166,12 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.text()).toContain('sudo: 1 incorrect password attempt')
     expect(wrapper.text()).toContain('guest@long4changes:/$')
 
-    // 3. Initiate auth and enter correct password
+    // 3. Initiate auth and enter correct password (200 from backend)
     await input.setValue('auth')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    await input.setValue('cyberkb-root-secret')
+    await input.setValue('correct-secret')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
@@ -121,8 +179,8 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     // Dynamic prompt switches to root
     expect(wrapper.text()).toContain('root@long4changes:~#')
 
-    // 4. Search for private content while authenticated as root
-    await input.setValue('search 机密')
+    // 4. Search while authenticated as root (returns private chunk)
+    await input.setValue('search secret')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
@@ -130,7 +188,7 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.text()).toContain('[PRIVATE]')
     expect(wrapper.text()).toContain('secret-vault')
 
-    // 5. Open private document as root
+    // 5. Open private document as root (200 from backend)
     await input.setValue('open secret-vault')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -139,13 +197,15 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.text()).toContain('|_secret-vault.exe')
     expect(wrapper.text()).toContain('机密知识切片')
 
-    // 6. Logout command reverts to guest
+    // 6. Logout command closes private WindowCard and reverts prompt to guest
     await input.setValue('logout')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Session closed. Reverted to guest privileges.')
     expect(wrapper.text()).toContain('guest@long4changes:/$')
+    // Private WindowCard is closed on logout
+    expect(wrapper.find('.window-pane').exists()).toBe(false)
 
     wrapper.unmount()
   })

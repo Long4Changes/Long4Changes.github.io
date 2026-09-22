@@ -2,13 +2,14 @@
 import { ref, onMounted } from 'vue'
 import Terminal from './components/Terminal.vue'
 import WindowCard from './components/WindowCard.vue'
-import { fetchDocumentCatalog, fetchDocument, getAuthRole } from './services/api'
+import { fetchDocumentCatalog, fetchDocument, type Visibility, type Role } from './services/api'
 
 const terminalRef = ref<InstanceType<typeof Terminal> | null>(null)
 const isWindowOpen = ref(false)
 const activeSlug = ref('')
 const activeContent = ref('')
-const catalog = ref<string[]>([])
+const activeVisibility = ref<Visibility>('public')
+const catalog = ref<string[]>(['ark', 'articles', 'about'])
 
 async function loadCatalog() {
   try {
@@ -17,10 +18,7 @@ async function loadCatalog() {
       catalog.value = items.map(d => d.slug)
     }
   } catch {
-    const role = getAuthRole()
-    catalog.value = role === 'root'
-      ? ['ark', 'articles', 'about', 'secret-vault']
-      : ['ark', 'articles', 'about']
+    catalog.value = ['ark', 'articles', 'about']
   }
 }
 
@@ -29,6 +27,7 @@ async function handleOpenSlug(slug: string) {
     const doc = await fetchDocument(slug)
     activeSlug.value = doc.slug
     activeContent.value = doc.content
+    activeVisibility.value = doc.visibility
     isWindowOpen.value = true
   } catch (err: any) {
     terminalRef.value?.displayError(err.message || `Error opening slug '${slug}'`)
@@ -39,11 +38,13 @@ function handleCloseWindow() {
   isWindowOpen.value = false
   activeSlug.value = ''
   activeContent.value = ''
+  activeVisibility.value = 'public'
 }
 
-async function handleAuthChange(newRole: 'guest' | 'root') {
+async function handleAuthChange(newRole: Role) {
   await loadCatalog()
-  if (newRole === 'guest' && activeSlug.value === 'secret-vault') {
+  // If guest, immediately close any active private document WindowCard
+  if (newRole === 'guest' && activeVisibility.value === 'private') {
     handleCloseWindow()
   }
 }

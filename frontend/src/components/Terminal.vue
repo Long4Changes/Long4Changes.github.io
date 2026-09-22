@@ -5,10 +5,12 @@ import {
   loginAuth,
   clearAuthSession,
   getAuthRole,
-  type SearchResultItem
+  type SearchResultItem,
+  type Role
 } from '../services/api'
 
 interface HistoryItem {
+  prompt?: string
   command: string
   response?: string
   type?: 'text' | 'search-results' | 'error'
@@ -22,7 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'open', slug: string): void
-  (e: 'auth-change', role: 'guest' | 'root'): void
+  (e: 'auth-change', role: Role): void
 }>()
 
 const history = ref<HistoryItem[]>([])
@@ -30,7 +32,7 @@ const inputBuffer = ref('')
 const inputElement = ref<HTMLInputElement | null>(null)
 const container = ref<HTMLElement | null>(null)
 
-const role = ref<'guest' | 'root'>(getAuthRole())
+const role = ref<Role>(getAuthRole())
 const isPasswordMode = ref(false)
 const passwordPrompt = ref('[sudo] password for guest: ')
 
@@ -48,7 +50,8 @@ async function handleCommand(cmd: string) {
     
     const pendingIndex = history.value.length
     history.value.push({
-      command: `${passwordPrompt.value}${maskedDisplay}`,
+      prompt: passwordPrompt.value,
+      command: maskedDisplay,
       response: 'Authenticating...'
     })
     scrollToBottom()
@@ -57,13 +60,15 @@ async function handleCommand(cmd: string) {
       const authRes = await loginAuth(enteredPassword)
       role.value = 'root'
       history.value[pendingIndex] = {
-        command: `${passwordPrompt.value}${maskedDisplay}`,
+        prompt: passwordPrompt.value,
+        command: maskedDisplay,
         response: `Authentication successful. Welcome, ${authRes.role}. Prompt updated to root.`
       }
       emit('auth-change', 'root')
     } catch (err: any) {
       history.value[pendingIndex] = {
-        command: `${passwordPrompt.value}${maskedDisplay}`,
+        prompt: passwordPrompt.value,
+        command: maskedDisplay,
         response: `sudo: 1 incorrect password attempt. ${err.message || 'Access denied.'}`
       }
     }
@@ -74,17 +79,20 @@ async function handleCommand(cmd: string) {
   const trimmedCmd = cmd.trim()
   if (!trimmedCmd) return
 
+  const currentPrompt = promptStr.value
   const parts = trimmedCmd.split(/\s+/)
   const command = parts[0]
   const args = parts.slice(1)
 
   if (command === 'help') {
     history.value.push({
+      prompt: currentPrompt,
       command: trimmedCmd,
       response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  clear            - Clear terminal screen'
     })
   } else if (command === 'ls') {
     history.value.push({
+      prompt: currentPrompt,
       command: trimmedCmd,
       response: props.catalog.length > 0 ? props.catalog.join('  ') : 'No documents found.'
     })
@@ -94,11 +102,13 @@ async function handleCommand(cmd: string) {
   } else if (command === 'sudo' || command === 'auth') {
     if (command === 'sudo' && args.join(' ') !== 'su') {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: "Usage: sudo su (or type 'auth')"
       })
     } else if (role.value === 'root') {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: 'Already running as root.'
       })
@@ -106,6 +116,7 @@ async function handleCommand(cmd: string) {
       isPasswordMode.value = true
       passwordPrompt.value = '[sudo] password for guest: '
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: ''
       })
@@ -115,12 +126,14 @@ async function handleCommand(cmd: string) {
       clearAuthSession()
       role.value = 'guest'
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: 'Session closed. Reverted to guest privileges.'
       })
       emit('auth-change', 'guest')
     } else {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: 'Already in guest session.'
       })
@@ -129,13 +142,15 @@ async function handleCommand(cmd: string) {
     const slug = args[0]
     if (!slug) {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: `Usage: ${command} <slug>`
       })
     } else {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
-        response: `Opening ${slug}...`
+        response: ''
       })
       emit('open', slug)
     }
@@ -143,12 +158,14 @@ async function handleCommand(cmd: string) {
     const query = args.join(' ')
     if (!query) {
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: 'Usage: search <query>'
       })
     } else {
       const pendingIndex = history.value.length
       history.value.push({
+        prompt: currentPrompt,
         command: trimmedCmd,
         response: `Searching semantic index for "${query}"...`
       })
@@ -158,11 +175,13 @@ async function handleCommand(cmd: string) {
         const results = await searchDocuments(query)
         if (results.length === 0) {
           history.value[pendingIndex] = {
+            prompt: currentPrompt,
             command: trimmedCmd,
             response: `No matching document chunks found for: "${query}".`
           }
         } else {
           history.value[pendingIndex] = {
+            prompt: currentPrompt,
             command: trimmedCmd,
             type: 'search-results',
             searchResults: results
@@ -170,6 +189,7 @@ async function handleCommand(cmd: string) {
         }
       } catch (err: any) {
         history.value[pendingIndex] = {
+          prompt: currentPrompt,
           command: trimmedCmd,
           response: `Search error: ${err.message || 'Failed to query vector database'}`
         }
@@ -177,6 +197,7 @@ async function handleCommand(cmd: string) {
     }
   } else {
     history.value.push({
+      prompt: currentPrompt,
       command: trimmedCmd,
       response: `Command not found: ${command}. Type 'help' for available commands.`
     })
@@ -203,8 +224,9 @@ function onKeyDown(e: KeyboardEvent) {
 
 function handleOpenSlug(slug: string) {
   history.value.push({
+    prompt: promptStr.value,
     command: `open ${slug}`,
-    response: `Opening ${slug}...`
+    response: ''
   })
   emit('open', slug)
   scrollToBottom()
@@ -245,7 +267,7 @@ function focusInput() {
   <div class="terminal" @click="focusInput" ref="container">
     <div v-for="(item, index) in history" :key="index" class="history-item">
       <div v-if="item.command" class="prompt-line">
-        <span class="prompt">{{ promptStr }}</span>
+        <span class="prompt">{{ item.prompt || promptStr }}</span>
         <span class="command">{{ item.command }}</span>
       </div>
 
