@@ -1,0 +1,28 @@
+:root {
+  --primary: #1f1f1f;
+  --surface: #fefefe;
+  font-family: "JetBrains Mono", "Noto Sans SC", monospace;
+  font-size: 15.1181px;
+  background-color: var(--surface);
+  color: var(--primary);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+
+#app {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
