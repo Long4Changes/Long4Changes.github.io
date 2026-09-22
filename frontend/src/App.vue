@@ -100,6 +100,29 @@ onMounted(() => {
   height: 100%;
   overflow: auto;
   border-top: 1px solid var(--primary);
+  background-color: var(--surface);
+}
+
+@media (max-width: 767px) {
+  .window-pane {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 100;
+    border-top: none;
+    animation: drawerSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes drawerSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 @media (min-width: 768px) {

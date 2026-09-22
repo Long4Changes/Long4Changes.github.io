@@ -339,6 +339,78 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
 
     wrapper.unmount()
   })
+
+  it('supports Tab key autocomplete for commands and document slugs', async () => {
+    const wrapper = mount(App)
+    const input = wrapper.find('input')
+
+    // 1. Tab autocomplete unique command prefix: "se" -> "search "
+    await input.setValue('se')
+    await input.trigger('keydown', { key: 'Tab' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('search ')
+
+    // 2. Tab autocomplete unique command prefix: "cl" -> "clear "
+    await input.setValue('cl')
+    await input.trigger('keydown', { key: 'Tab' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('clear ')
+
+    // 3. Tab autocomplete document slug with unique prefix: "open ab" -> "open about"
+    await input.setValue('open ab')
+    await input.trigger('keydown', { key: 'Tab' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('open about')
+
+    // 4. Tab autocomplete with multiple candidates: "open a" displays candidates in terminal
+    await input.setValue('open a')
+    await input.trigger('keydown', { key: 'Tab' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('ark')
+    expect(wrapper.text()).toContain('articles')
+    expect(wrapper.text()).toContain('about')
+
+    wrapper.unmount()
+  })
+
+  it('supports ArrowUp and ArrowDown keys to traverse command history', async () => {
+    const wrapper = mount(App)
+    const input = wrapper.find('input')
+
+    // Execute sequence of commands
+    await input.setValue('help')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    await input.setValue('ls')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    // Start typing a draft
+    await input.setValue('my draft')
+
+    // ArrowUp 1: recall last command ('ls')
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('ls')
+
+    // ArrowUp 2: recall previous command ('help')
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('help')
+
+    // ArrowDown 1: forward to 'ls'
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('ls')
+
+    // ArrowDown 2: return to original draft
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('my draft')
+
+    wrapper.unmount()
+  })
 })
 
 

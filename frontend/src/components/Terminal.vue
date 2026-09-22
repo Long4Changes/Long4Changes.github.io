@@ -38,6 +38,24 @@ const inputBuffer = ref('')
 const inputElement = ref<HTMLInputElement | null>(null)
 const container = ref<HTMLElement | null>(null)
 
+const commandHistory = ref<string[]>([])
+const historyIndex = ref<number>(-1)
+const draftInput = ref<string>('')
+
+const AVAILABLE_COMMANDS = [
+  'help',
+  'ls',
+  'search',
+  'ask',
+  'open',
+  'cat',
+  'sudo su',
+  'auth',
+  'logout',
+  'sync',
+  'clear'
+]
+
 const role = ref<Role>(getAuthRole())
 const isPasswordMode = ref(false)
 const passwordPrompt = ref('[sudo] password for guest: ')
@@ -84,6 +102,12 @@ async function handleCommand(cmd: string) {
 
   const trimmedCmd = cmd.trim()
   if (!trimmedCmd) return
+
+  if (commandHistory.value[commandHistory.value.length - 1] !== trimmedCmd) {
+    commandHistory.value.push(trimmedCmd)
+  }
+  historyIndex.value = -1
+  draftInput.value = ''
 
   const currentPrompt = promptStr.value
   const parts = trimmedCmd.split(/\s+/)
@@ -312,11 +336,104 @@ function scrollToBottom() {
   })
 }
 
+function findLongestCommonPrefix(strings: string[]): string {
+  if (strings.length === 0) return ''
+  let prefix = strings[0]
+  for (let i = 1; i < strings.length; i++) {
+    while (!strings[i].startsWith(prefix)) {
+      prefix = prefix.slice(0, -1)
+      if (!prefix) return ''
+    }
+  }
+  return prefix
+}
+
+function handleTabAutocomplete() {
+  const raw = inputBuffer.value
+  const trimmedLeft = raw.trimStart()
+  if (!trimmedLeft) return
+
+  const parts = trimmedLeft.split(/\s+/)
+
+  // Case 1: Completing the command word itself (no trailing space)
+  if (parts.length === 1 && !raw.endsWith(' ')) {
+    const prefix = parts[0].toLowerCase()
+    const matches = AVAILABLE_COMMANDS.filter(cmd => cmd.startsWith(prefix))
+
+    if (matches.length === 1) {
+      inputBuffer.value = matches[0] + ' '
+    } else if (matches.length > 1) {
+      const commonPrefix = findLongestCommonPrefix(matches)
+      if (commonPrefix.length > prefix.length) {
+        inputBuffer.value = commonPrefix
+      } else {
+        history.value.push({
+          prompt: promptStr.value,
+          command: raw,
+          response: matches.join('   ')
+        })
+        scrollToBottom()
+      }
+    }
+    return
+  }
+
+  // Case 2: Completing slug for 'open' or 'cat'
+  const commandWord = parts[0].toLowerCase()
+  if ((commandWord === 'open' || commandWord === 'cat') && props.catalog && props.catalog.length > 0) {
+    const slugPrefix = parts.length > 1 ? parts[1].toLowerCase() : ''
+    const matches = props.catalog.filter(slug => slug.toLowerCase().startsWith(slugPrefix))
+
+    if (matches.length === 1) {
+      inputBuffer.value = `${commandWord} ${matches[0]}`
+    } else if (matches.length > 1) {
+      const commonPrefix = findLongestCommonPrefix(matches)
+      if (commonPrefix.length > slugPrefix.length) {
+        inputBuffer.value = `${commandWord} ${commonPrefix}`
+      } else {
+        history.value.push({
+          prompt: promptStr.value,
+          command: raw,
+          response: matches.join('   ')
+        })
+        scrollToBottom()
+      }
+    }
+  }
+}
+
 function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     const val = inputBuffer.value
     inputBuffer.value = ''
+    historyIndex.value = -1
+    draftInput.value = ''
     handleCommand(val)
+  } else if (e.key === 'ArrowUp') {
+    if (isPasswordMode.value || commandHistory.value.length === 0) return
+    e.preventDefault()
+    if (historyIndex.value === -1) {
+      draftInput.value = inputBuffer.value
+    }
+    const nextIdx = historyIndex.value + 1
+    if (nextIdx < commandHistory.value.length) {
+      historyIndex.value = nextIdx
+      inputBuffer.value = commandHistory.value[commandHistory.value.length - 1 - nextIdx]
+    }
+  } else if (e.key === 'ArrowDown') {
+    if (isPasswordMode.value) return
+    e.preventDefault()
+    if (historyIndex.value > 0) {
+      historyIndex.value--
+      inputBuffer.value = commandHistory.value[commandHistory.value.length - 1 - historyIndex.value]
+    } else if (historyIndex.value === 0) {
+      historyIndex.value = -1
+      inputBuffer.value = draftInput.value
+    }
+  } else if (e.key === 'Tab') {
+    e.preventDefault()
+    if (isPasswordMode.value) return
+    handleTabAutocomplete()
   }
 }
 

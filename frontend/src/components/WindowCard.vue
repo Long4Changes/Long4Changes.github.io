@@ -93,7 +93,11 @@ onUnmounted(() => {
   cursor: pointer;
   z-index: 1;
   background: var(--surface);
-  padding: 0 4px;
+  padding: 2px 6px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
 }
 
 .controls:hover {
