@@ -7,16 +7,20 @@ import {
   clearAuthSession,
   getAuthRole,
   syncDocuments,
+  fetchDocument,
   type SearchResultItem,
   type CitationItem,
   type Role
 } from '../services/api'
+import { defaultShellRegistry } from '../services/virtual-shell/registry'
+import { vfs } from '../services/virtual-shell/vfs'
+import type { ShellContext } from '../services/virtual-shell/types'
 
 interface HistoryItem {
   prompt?: string
   command: string
   response?: string
-  type?: 'text' | 'search-results' | 'rag-answer' | 'error'
+  type?: 'text' | 'search-results' | 'rag-answer' | 'error' | 'bat' | 'glow' | 'neofetch'
   searchResults?: SearchResultItem[]
   ragContent?: string
   citations?: CitationItem[]
@@ -49,6 +53,20 @@ const AVAILABLE_COMMANDS = [
   'ask',
   'open',
   'cat',
+  'bat',
+  'glow',
+  'tldr',
+  'neofetch',
+  'fastfetch',
+  'whoami',
+  'pwd',
+  'cd',
+  'uname',
+  'date',
+  'uptime',
+  'echo',
+  'history',
+  'tree',
   'sudo',
   'auth',
   'logout',
@@ -57,13 +75,19 @@ const AVAILABLE_COMMANDS = [
 ]
 
 const role = ref<Role>(getAuthRole())
+const cwd = ref('/')
 const isPasswordMode = ref(false)
 const isComposing = ref(false)
 const compositionBuffer = ref('')
 const passwordPrompt = ref('[sudo] password for guest: ')
 
 const promptStr = computed(() => {
-  return role.value === 'root' ? 'root@long4changes:~#' : 'guest@long4changes:/$'
+  if (role.value === 'root') {
+    const displayDir = cwd.value === '/' || cwd.value === '/root' || cwd.value === '/home/liangchen' ? '~' : cwd.value
+    return `root@long4changes:${displayDir}#`
+  }
+  const displayDir = cwd.value === '/home/liangchen' ? '~' : cwd.value
+  return `guest@long4changes:${displayDir}$`
 })
 
 function onCompositionStart() {
@@ -142,13 +166,18 @@ async function handleCommand(cmd: string) {
     history.value.push({
       prompt: currentPrompt,
       command: trimmedCmd,
-      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  sync             - Synchronize repository markdown documents (requires root)\n  clear            - Clear terminal screen'
+      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs or directory contents\n  cd <dir>         - Change working directory (~, /docs, /bin, /etc)\n  pwd              - Print current working directory\n  whoami           - Display current user identity (guest or root)\n  uname -a         - Print system and kernel specifications\n  date             - Display current date and time\n  uptime           - Show virtual system uptime and load average\n  history          - Display numbered list of executed commands\n  tree [dir]       - Print ASCII directory tree\n  bat <slug>       - View document with bordered line numbers\n  glow <slug>      - Render Markdown document in terminal\n  tldr [cmd]       - Simplified community cheatsheets\n  neofetch         - Print retro system info and ASCII badge\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Print raw content of document\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  sync             - Synchronize repository markdown documents (requires root)\n  clear            - Clear terminal screen'
     })
   } else if (command === 'ls') {
+    const vfsList = vfs.listDir(cwd.value, props.catalog)
+    const docSlugs = props.catalog.length > 0 ? props.catalog.join('  ') : ''
+    const out = cwd.value === '/'
+      ? `${vfsList.join('  ')}\nDocuments: ${docSlugs}`
+      : vfsList.join('  ')
     history.value.push({
       prompt: currentPrompt,
       command: trimmedCmd,
-      response: props.catalog.length > 0 ? props.catalog.join('  ') : 'No documents found.'
+      response: out || docSlugs || 'No documents found.'
     })
   } else if (command === 'clear') {
     history.value = []
@@ -341,11 +370,45 @@ async function handleCommand(cmd: string) {
         }
       }
     }
+  } else if (defaultShellRegistry.getCommand(command)) {
+    const shellCtx: ShellContext = {
+      args,
+      rawCommand: trimmedCmd,
+      cwd: cwd.value,
+      role: role.value,
+      catalog: props.catalog || [],
+      history: commandHistory.value,
+      getDocument: async (slug: string) => {
+        return await fetchDocument(slug)
+      },
+      setCwd: (newCwd: string) => {
+        cwd.value = newCwd
+      }
+    }
+    try {
+      const res = await defaultShellRegistry.execute(trimmedCmd, shellCtx)
+      if (res.newCwd) {
+        cwd.value = res.newCwd
+      }
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: res.output,
+        type: (res.type as any) || 'text'
+      })
+    } catch (err: any) {
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: `Execution error: ${err.message || 'Command failed'}`,
+        type: 'error'
+      })
+    }
   } else {
     history.value.push({
       prompt: currentPrompt,
       command: trimmedCmd,
-      response: `Command not found: ${command}. Type 'help' for available commands.`
+      response: `Command not found: ${command}. Type 'help' or 'tldr' for available commands.`
     })
   }
 
@@ -360,33 +423,29 @@ function scrollToBottom() {
   })
 }
 
-function findLongestCommonPrefix(strings: string[]): string {
-  if (strings.length === 0) return ''
-  let prefix = strings[0]
-  for (let i = 1; i < strings.length; i++) {
-    while (!strings[i].startsWith(prefix)) {
-      prefix = prefix.slice(0, -1)
-      if (!prefix) return ''
-    }
-  }
-  return prefix
-}
+function handleTabAutocomplete() {
+  const raw = inputBuffer.value
+  const trimmedLeft = raw.trimStart()
+  if (!trimmedLeft) return
 
-function resolveAutocompleteMatch(
-  prefix: string,
-  candidates: string[],
-  prefixBase = '',
-  appendSpace = false
-): boolean {
-  const matches = candidates.filter(c => c.toLowerCase().startsWith(prefix.toLowerCase()))
+  const shellCtx: ShellContext = {
+    args: [],
+    rawCommand: raw,
+    cwd: cwd.value,
+    role: role.value,
+    catalog: props.catalog || [],
+    history: commandHistory.value,
+    getDocument: async (slug: string) => fetchDocument(slug),
+    setCwd: (newCwd: string) => { cwd.value = newCwd }
+  }
+
+  const { matches, commonPrefix } = defaultShellRegistry.getAutocomplete(raw, shellCtx)
+
   if (matches.length === 1) {
-    const res = prefixBase ? `${prefixBase} ${matches[0]}` : matches[0]
-    inputBuffer.value = appendSpace ? res + ' ' : res
-    return true
+    inputBuffer.value = matches[0] + ' '
   } else if (matches.length > 1) {
-    const commonPrefix = findLongestCommonPrefix(matches)
-    if (commonPrefix.length > prefix.length) {
-      inputBuffer.value = prefixBase ? `${prefixBase} ${commonPrefix}` : commonPrefix
+    if (commonPrefix.length > raw.trim().length) {
+      inputBuffer.value = commonPrefix
     } else {
       history.value.push({
         prompt: promptStr.value,
@@ -395,38 +454,6 @@ function resolveAutocompleteMatch(
       })
       scrollToBottom()
     }
-    return true
-  }
-  return false
-}
-
-function handleTabAutocomplete() {
-  const raw = inputBuffer.value
-  const trimmedLeft = raw.trimStart()
-  if (!trimmedLeft) return
-
-  const parts = trimmedLeft.split(/\s+/)
-
-  // Case 1: Completing the command word itself (no trailing space)
-  if (parts.length === 1 && !raw.endsWith(' ')) {
-    const prefix = parts[0].toLowerCase()
-    resolveAutocompleteMatch(prefix, AVAILABLE_COMMANDS, '', true)
-    return
-  }
-
-  const commandWord = parts[0].toLowerCase()
-
-  // Case 2: Completing sub-command for 'sudo'
-  if (commandWord === 'sudo') {
-    const subArg = parts.length > 1 ? parts[1].toLowerCase() : ''
-    resolveAutocompleteMatch(subArg, ['su'], 'sudo', false)
-    return
-  }
-
-  // Case 3: Completing slug for 'open' or 'cat'
-  if ((commandWord === 'open' || commandWord === 'cat') && props.catalog && props.catalog.length > 0) {
-    const slugPrefix = parts.length > 1 ? parts[1].toLowerCase() : ''
-    resolveAutocompleteMatch(slugPrefix, props.catalog, commandWord, false)
   }
 }
 
@@ -519,9 +546,10 @@ function focusInput() {
         <span class="command">{{ item.command }}</span>
       </div>
 
-      <!-- Plain text output -->
+      <!-- Plain text or special CLI output -->
       <div v-if="item.response" class="response" :class="{ 'error-text': item.type === 'error' }" style="white-space: pre-wrap;">
-        {{ item.response }}
+        <pre v-if="item.type === 'neofetch' || item.type === 'bat' || item.type === 'glow'" class="cli-formatted-output">{{ item.response }}</pre>
+        <span v-else>{{ item.response }}</span>
       </div>
 
       <!-- Semantic search result cards -->
@@ -627,6 +655,15 @@ function focusInput() {
 .response {
   margin-top: 4px;
   line-height: 1.5;
+}
+
+.cli-formatted-output {
+  margin: 4px 0;
+  font-family: inherit;
+  font-size: inherit;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.35;
 }
 
 .error-text {
