@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +16,14 @@ from backend.app.auth import (
     get_current_role
 )
 from backend.app.rag import stream_rag_answer
+from backend.app.sync import (
+    verify_github_signature,
+    parse_github_push_diff,
+    process_webhook_diff,
+    sync_repository_documents
+)
 
-app = FastAPI(title="CyberKB Terminal API", version="0.2.0")
+app = FastAPI(title="CyberKB Terminal API", version="0.3.0")
 
 # Enable CORS for frontend clients (GitHub Pages & local development)
 app.add_middleware(
@@ -206,3 +212,60 @@ async def ask_question(
             "X-Accel-Buffering": "no"
         }
     )
+
+class WebhookResponse(BaseModel):
+    status: str
+    updated: List[str] = []
+    removed: List[str] = []
+
+class SyncResponse(BaseModel):
+    status: str
+    synced_documents: List[str]
+    total: int
+
+@app.post("/api/webhook/github", response_model=WebhookResponse)
+async def github_webhook(
+    request: Request,
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
+    db: AsyncSession = Depends(get_session)
+):
+    """GitHub Webhook endpoint to sync repository push changes."""
+    body_bytes = await request.body()
+    if not verify_github_signature(body_bytes, x_hub_signature_256):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing GitHub HMAC-SHA256 signature"
+        )
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    diff = parse_github_push_diff(payload)
+    res = await process_webhook_diff(diff, base_dir="", db=db)
+    return WebhookResponse(
+        status=res.get("status", "processed"),
+        updated=res.get("updated", []),
+        removed=res.get("removed", [])
+    )
+
+@app.post("/api/sync", response_model=SyncResponse)
+async def manual_sync(
+    role: str = Depends(get_current_role),
+    db: AsyncSession = Depends(get_session)
+):
+    """Admin endpoint to manually trigger repository document re-indexing (requires root role)."""
+    if role != "root":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: 'sync' requires root administrative privileges"
+        )
+
+    res = await sync_repository_documents(db=db)
+    return SyncResponse(
+        status=res["status"],
+        synced_documents=res["synced_documents"],
+        total=res["total"]
+    )
+
