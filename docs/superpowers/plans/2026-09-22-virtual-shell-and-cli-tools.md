@@ -32,7 +32,7 @@
   - `ShellContext`, `CommandResult`, `ShellCommand` in `types.ts`
   - `class VirtualFileSystem`: `resolvePath(cwd: string, target: string): string | null`, `listDir(path: string, catalog: string[]): string[]`, `isDir(path: string): boolean`
 
-- [ ] **Step 1: Write the failing test for VFS**
+- [x] **Step 1: Write the failing test for VFS**
 
 ```typescript
 // frontend/src/__tests__/vfs.test.ts
@@ -73,21 +73,21 @@ describe('VirtualFileSystem', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/__tests__/vfs.test.ts`
 Expected: FAIL with module not found.
 
-- [ ] **Step 3: Implement types.ts and vfs.ts**
+- [x] **Step 3: Implement types.ts and vfs.ts**
 
 Write `frontend/src/services/virtual-shell/types.ts` and `frontend/src/services/virtual-shell/vfs.ts`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/__tests__/vfs.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/services/virtual-shell/ frontend/src/__tests__/vfs.test.ts
@@ -115,7 +115,7 @@ git commit -m "feat(shell): implement virtual file system and core shell types"
   - `history`: numbered command history
   - `man`: delegates to tldr
 
-- [ ] **Step 1: Write the failing test for builtins**
+- [x] **Step 1: Write the failing test for builtins**
 
 ```typescript
 // frontend/src/__tests__/builtins.test.ts
@@ -177,21 +177,21 @@ describe('Builtin Shell Commands', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/__tests__/builtins.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement builtins.ts**
+- [x] **Step 3: Implement builtins.ts**
 
 Create `frontend/src/services/virtual-shell/commands/builtins.ts` implementing all built-in commands.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/__tests__/builtins.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/services/virtual-shell/commands/builtins.ts frontend/src/__tests__/builtins.test.ts
@@ -215,7 +215,7 @@ git commit -m "feat(shell): implement standard Linux builtin commands"
   - `tldr [command]`: Community-style simplified command manuals
   - `tree [dir]`: ASCII hierarchy representation of VFS
 
-- [ ] **Step 1: Write the failing test for modern CLI tools**
+- [x] **Step 1: Write the failing test for modern CLI tools**
 
 ```typescript
 // frontend/src/__tests__/modern-cli.test.ts
@@ -295,21 +295,21 @@ describe('Modern CLI Tools', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/__tests__/modern-cli.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement modern.ts**
+- [x] **Step 3: Implement modern.ts**
 
 Create `frontend/src/services/virtual-shell/commands/modern.ts` with complete implementations for `neofetch`, `bat`, `glow`, `tldr`, `tree`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/__tests__/modern-cli.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/services/virtual-shell/commands/modern.ts frontend/src/__tests__/modern-cli.test.ts
@@ -329,7 +329,7 @@ git commit -m "feat(shell): implement modern CLI utilities bat, glow, tldr, neof
 - Produces:
   - `class ShellRegistry`: `registerCommand(cmd: ShellCommand)`, `getCommand(name: string): ShellCommand | undefined`, `getAllCommands(): ShellCommand[]`, `execute(input: string, ctx: ShellContext): Promise<CommandResult>`, `getAutocompleteSuggestions(prefix: string, cwd: string, catalog: string[]): { matches: string[]; commonPrefix: string }`
 
-- [ ] **Step 1: Write the failing test for ShellRegistry**
+- [x] **Step 1: Write the failing test for ShellRegistry**
 
 ```typescript
 // frontend/src/__tests__/registry.test.ts
@@ -377,21 +377,21 @@ describe('ShellRegistry and Dispatcher', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/__tests__/registry.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement registry.ts**
+- [x] **Step 3: Implement registry.ts**
 
 Create `frontend/src/services/virtual-shell/registry.ts` aggregating builtin commands, modern CLI commands, and autocomplete matching engine.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/__tests__/registry.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/services/virtual-shell/registry.ts frontend/src/__tests__/registry.test.ts
@@ -414,7 +414,7 @@ git commit -m "feat(shell): implement shell registry and autocomplete router"
   - Root: `root@long4changes:~# ` or `root@long4changes:<cwd># `
 - Integrates multi-level Tab completion (`tldr <cmd>`, `bat <slug>`, `glow <slug>`, `cd <dir>`).
 
-- [ ] **Step 1: Write integration test for Terminal with Virtual Shell**
+- [x] **Step 1: Write integration test for Terminal with Virtual Shell**
 
 ```typescript
 // frontend/src/__tests__/Terminal-shell.test.ts
@@ -469,21 +469,21 @@ describe('Terminal with Virtual Shell Integration', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/__tests__/Terminal-shell.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Modify Terminal.vue to integrate Virtual Shell**
+- [x] **Step 3: Modify Terminal.vue to integrate Virtual Shell**
 
 Update `Terminal.vue` to bind `defaultShellRegistry` for command execution and prompt computation.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/__tests__/Terminal-shell.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/Terminal.vue frontend/src/__tests__/Terminal-shell.test.ts
@@ -498,17 +498,17 @@ git commit -m "feat(terminal): integrate virtual shell engine and dynamic prompt
 - Modify: `docs/agents/domain.md` or `CONTEXT.md` (record Virtual Shell architecture)
 - Test: All suites (`npm run test`)
 
-- [ ] **Step 1: Run full test suite across all files**
+- [x] **Step 1: Run full test suite across all files**
 
 Run: `npm run test`
 Expected: All 32+ tests across all test suites PASS.
 
-- [ ] **Step 2: Run production build and typechecking**
+- [x] **Step 2: Run production build and typechecking**
 
 Run: `npm run build`
 Expected: `vue-tsc -b && vite build` succeeds with 0 errors.
 
-- [ ] **Step 3: Commit and push**
+- [x] **Step 3: Commit and push**
 
 ```bash
 git add docs/ frontend/

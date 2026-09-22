@@ -27,3 +27,7 @@ _Avoid_: Modal, popup, card, panel
 **Role**:
 The authorization identity of the active session, either `guest` (unauthenticated visitor) or `root` (authenticated owner).
 _Avoid_: User, account, profile
+
+**Virtual Shell**:
+A client-side sandboxed command dispatcher and in-memory Virtual File System (VFS) in the Terminal that provides Linux builtins (`cd`, `pwd`, `whoami`, `uname`, `history`, `echo`, `uptime`, `date`, `man`) and modern CLI tools (`neofetch`, `bat`, `glow`, `tldr`, `tree`) without server execution.
+_Avoid_: Remote shell, SSH, backend terminal emulator
