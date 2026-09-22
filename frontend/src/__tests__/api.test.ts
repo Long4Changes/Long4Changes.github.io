@@ -6,8 +6,10 @@ import {
   askQuestionStream,
   loginAuth,
   clearAuthSession,
+  setAuthSession,
   getAuthRole,
   getAuthToken,
+  syncDocuments,
   setApiBase
 } from '../services/api'
 
@@ -181,5 +183,50 @@ describe('API Service Unit & Auth Tests', () => {
     expect(streamedTokens.length).toBeGreaterThan(0)
     expect(isDone).toBe(true)
   })
+
+  it('syncDocuments rejects guest caller with permission denied error', async () => {
+    setApiBase('http://localhost:8000')
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () => {
+      return new Response(JSON.stringify({ detail: "Permission denied: 'sync' requires root" }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    })
+
+    await expect(syncDocuments()).rejects.toThrow(/Permission denied.*requires root/)
+  })
+
+  it('syncDocuments succeeds for authenticated root user', async () => {
+    setApiBase('http://localhost:8000')
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () => {
+      return new Response(JSON.stringify({
+        status: 'synchronized',
+        synced_documents: ['sample-public', 'sample-private'],
+        total: 2
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    })
+
+    const result = await syncDocuments()
+    expect(result.status).toBe('synchronized')
+    expect(result.total).toBe(2)
+    expect(result.synced_documents).toEqual(['sample-public', 'sample-private'])
+  })
+
+  it('syncDocuments offline fallback respects guest vs root', async () => {
+    setApiBase('')
+    clearAuthSession()
+    // Guest
+    await expect(syncDocuments()).rejects.toThrow(/Permission denied/)
+
+    // Root
+    setAuthSession('dummy-token', 'root')
+    const result = await syncDocuments()
+    expect(result.status).toBe('synchronized')
+    expect(result.total).toBeGreaterThanOrEqual(3)
+  })
 })
+
 

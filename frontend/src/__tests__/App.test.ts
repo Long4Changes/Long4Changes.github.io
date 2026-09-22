@@ -279,5 +279,66 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
 
     wrapper.unmount()
   })
+
+  it('blocks guest from sync command and executes sync successfully for root', async () => {
+    setApiBase('http://localhost:8000')
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      const u = String(url)
+      if (u.includes('/api/auth')) {
+        return new Response(JSON.stringify({
+          access_token: 'root-token',
+          token_type: 'bearer',
+          role: 'root'
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (u.includes('/api/sync')) {
+        const auth = init?.headers?.['Authorization']
+        if (auth && auth.includes('root-token')) {
+          return new Response(JSON.stringify({
+            status: 'synchronized',
+            synced_documents: ['sample-public', 'sample-private'],
+            total: 2
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ detail: "Permission denied: 'sync' requires root" }), { status: 403 })
+      }
+      return new Response(JSON.stringify({ documents: [] }), { status: 200 })
+    })
+
+    const wrapper = mount(App, { attachTo: document.body })
+    const input = wrapper.find('input')
+
+    // 1. Guest tries sync -> blocked
+    await input.setValue('sync')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain("Permission denied: 'sync' requires root administrative privileges")
+
+    // 2. Authenticate as root
+    await input.setValue('auth')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    await input.setValue('valid-passkey')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('root@long4changes:~#')
+
+    // 3. Root executes sync -> successful ingestion summary
+    await input.setValue('sync')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('GITOPS INGESTION SUMMARY')
+    expect(wrapper.text()).toContain('SYNCHRONIZED')
+    expect(wrapper.text()).toContain('sample-public')
+    expect(wrapper.text()).toContain('sample-private')
+
+    wrapper.unmount()
+  })
 })
+
 

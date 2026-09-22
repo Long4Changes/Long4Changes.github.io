@@ -6,6 +6,7 @@ import {
   loginAuth,
   clearAuthSession,
   getAuthRole,
+  syncDocuments,
   type SearchResultItem,
   type CitationItem,
   type Role
@@ -93,7 +94,7 @@ async function handleCommand(cmd: string) {
     history.value.push({
       prompt: currentPrompt,
       command: trimmedCmd,
-      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  clear            - Clear terminal screen'
+      response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Alias for open <slug>\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  sync             - Synchronize repository markdown documents (requires root)\n  clear            - Clear terminal screen'
     })
   } else if (command === 'ls') {
     history.value.push({
@@ -240,6 +241,55 @@ async function handleCommand(cmd: string) {
           scrollToBottom()
         }
       })
+    }
+  } else if (command === 'sync') {
+    if (role.value !== 'root') {
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: "Permission denied: 'sync' requires root administrative privileges. Run 'sudo su' or 'auth' to authenticate.",
+        type: 'error'
+      })
+    } else {
+      const pendingIndex = history.value.length
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: '>> Initiating repository markdown sync and pgvector re-indexing...'
+      })
+      scrollToBottom()
+
+      try {
+        const syncRes = await syncDocuments()
+        const docList = syncRes.synced_documents && syncRes.synced_documents.length > 0
+          ? syncRes.synced_documents.map(s => `│  - ${s.padEnd(55)} │`).join('\n')
+          : '│  (no documents indexed)                                    │'
+
+        const summaryBox = [
+          '┌─────────────────────────────────────────────────────────────┐',
+          '│ GITOPS INGESTION SUMMARY                                    │',
+          '├─────────────────────────────────────────────────────────────┤',
+          `│ Status   : ${syncRes.status.toUpperCase().padEnd(48)} │`,
+          `│ Documents: ${syncRes.total.toString().padEnd(48)} │`,
+          '├─────────────────────────────────────────────────────────────┤',
+          '│ Synced Documents:                                           │',
+          docList,
+          '└─────────────────────────────────────────────────────────────┘'
+        ].join('\n')
+
+        history.value[pendingIndex] = {
+          prompt: currentPrompt,
+          command: trimmedCmd,
+          response: summaryBox
+        }
+      } catch (err: any) {
+        history.value[pendingIndex] = {
+          prompt: currentPrompt,
+          command: trimmedCmd,
+          response: `Sync failed: ${err.message || 'Unknown synchronization error'}`,
+          type: 'error'
+        }
+      }
     }
   } else {
     history.value.push({

@@ -399,3 +399,39 @@ export async function askQuestionStream(
   }
   callbacks.onDone()
 }
+
+export interface SyncResult {
+  status: string
+  synced_documents: string[]
+  total: number
+}
+
+export async function syncDocuments(): Promise<SyncResult> {
+  if (apiBase) {
+    const res = await fetch(`${apiBase}/api/sync`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    if (res.status === 403) {
+      throw new Error("Permission denied: 'sync' requires root administrative privileges. Run 'sudo su' or 'auth' to authenticate.")
+    }
+    if (!res.ok) {
+      throw new Error(`Sync failed with status ${res.status}`)
+    }
+    return await res.json()
+  }
+
+  // Offline fallback (e.g. static mode)
+  const role = getAuthRole()
+  if (role !== 'root') {
+    throw new Error("Permission denied: 'sync' requires root administrative privileges. Run 'sudo su' or 'auth' to authenticate.")
+  }
+
+  const fallbackSlugs = Object.keys(FALLBACK_DOCUMENTS)
+  return {
+    status: 'synchronized',
+    synced_documents: fallbackSlugs,
+    total: fallbackSlugs.length
+  }
+}
+
