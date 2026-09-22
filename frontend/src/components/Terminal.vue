@@ -261,20 +261,22 @@ async function handleCommand(cmd: string) {
 
       try {
         const syncRes = await syncDocuments()
-        const docList = syncRes.synced_documents && syncRes.synced_documents.length > 0
-          ? syncRes.synced_documents.map(s => `│  - ${s.padEnd(55)} │`).join('\n')
-          : '│  (no documents indexed)                                    │'
+        const innerWidth = 59
+        const contentWidth = 55 // 59 - 4 (margin '│ ' and ' │')
+        const docLines = syncRes.synced_documents && syncRes.synced_documents.length > 0
+          ? syncRes.synced_documents.map(s => `│   - ${s.padEnd(contentWidth - 4)} │`)
+          : [`│   (no documents indexed)${' '.repeat(contentWidth - 23)} │`]
 
         const summaryBox = [
-          '┌─────────────────────────────────────────────────────────────┐',
-          '│ GITOPS INGESTION SUMMARY                                    │',
-          '├─────────────────────────────────────────────────────────────┤',
-          `│ Status   : ${syncRes.status.toUpperCase().padEnd(48)} │`,
-          `│ Documents: ${syncRes.total.toString().padEnd(48)} │`,
-          '├─────────────────────────────────────────────────────────────┤',
-          '│ Synced Documents:                                           │',
-          docList,
-          '└─────────────────────────────────────────────────────────────┘'
+          `┌${'─'.repeat(innerWidth)}┐`,
+          `│ ${'GITOPS INGESTION SUMMARY'.padEnd(contentWidth)}   │`,
+          `├${'─'.repeat(innerWidth)}┤`,
+          `│ ${`Status   : ${syncRes.status.toUpperCase()}`.padEnd(contentWidth)}   │`,
+          `│ ${`Documents: ${syncRes.total}`.padEnd(contentWidth)}   │`,
+          `├${'─'.repeat(innerWidth)}┤`,
+          `│ ${'Synced Documents:'.padEnd(contentWidth)}   │`,
+          ...docLines,
+          `└${'─'.repeat(innerWidth)}┘`
         ].join('\n')
 
         history.value[pendingIndex] = {

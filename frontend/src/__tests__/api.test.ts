@@ -196,7 +196,7 @@ describe('API Service Unit & Auth Tests', () => {
     await expect(syncDocuments()).rejects.toThrow(/Permission denied.*requires root/)
   })
 
-  it('syncDocuments succeeds for authenticated root user', async () => {
+  it('syncDocuments succeeds for authenticated root', async () => {
     setApiBase('http://localhost:8000')
     vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () => {
       return new Response(JSON.stringify({
