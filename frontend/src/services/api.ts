@@ -15,6 +15,7 @@ export interface DocumentDetail {
   content: string
   visibility: Visibility
   updated_at?: string
+  raw?: string
   gitResult?: GitHubSyncResult
 }
 
@@ -83,7 +84,7 @@ export function clearAuthSession() {
   }
 }
 
-import { loadStaticDocuments } from './content-loader'
+import { loadStaticDocuments, parseMarkdownWithFrontmatter } from './content-loader'
 
 // ADR 0001: Only public documents are bundled for offline fallback
 const staticDocs = loadStaticDocuments()
@@ -315,21 +316,18 @@ export async function saveDocument(slug: string, content: string): Promise<Docum
   }
 
   if (!docToReturn) {
-    if (FALLBACK_DOCUMENTS[cleanSlug]) {
-      FALLBACK_DOCUMENTS[cleanSlug].content = content
-      FALLBACK_DOCUMENTS[cleanSlug].updated_at = new Date().toISOString()
-      docToReturn = FALLBACK_DOCUMENTS[cleanSlug]
-    } else {
-      const newDoc: DocumentDetail = {
-        slug: cleanSlug,
-        title: cleanSlug,
-        content,
-        visibility: 'public',
-        updated_at: new Date().toISOString()
-      }
-      FALLBACK_DOCUMENTS[cleanSlug] = newDoc
-      docToReturn = newDoc
+    const parsed = parseMarkdownWithFrontmatter(content, cleanSlug)
+    const existing = FALLBACK_DOCUMENTS[cleanSlug]
+    const updatedDoc: DocumentDetail = {
+      slug: cleanSlug,
+      title: parsed.title !== cleanSlug ? parsed.title : (existing?.title || cleanSlug),
+      content: parsed.content,
+      visibility: parsed.visibility || existing?.visibility || 'public',
+      updated_at: new Date().toISOString(),
+      raw: content
     }
+    FALLBACK_DOCUMENTS[cleanSlug] = updatedDoc
+    docToReturn = updatedDoc
   }
 
   // Trigger two-way GitHub direct commit if token is configured and caller is root

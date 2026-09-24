@@ -42,7 +42,8 @@ export function parseMarkdownWithFrontmatter(rawContent: string, defaultSlug: st
     slug,
     title,
     content: bodyContent,
-    visibility
+    visibility,
+    raw: rawContent
   }
 }
 

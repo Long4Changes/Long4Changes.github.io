@@ -392,7 +392,7 @@ async function handleCommand(cmd: string) {
           const doc = await fetchDocument(slug)
           editorSlug.value = doc.slug
           editorFilename.value = `${doc.slug}.md`
-          editorContent.value = doc.content
+          editorContent.value = doc.raw || doc.content
           isNvimMode.value = isNvim
           isEditorOpen.value = true
         } catch (err: any) {

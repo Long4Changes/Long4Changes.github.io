@@ -19,6 +19,7 @@ Some text here.
     expect(doc.content).toContain('# Heading 1')
     expect(doc.content).toContain('Some text here.')
     expect(doc.content).not.toContain('title: My Cool Post')
+    expect(doc.raw).toBe(raw)
   })
 
   it('infers title and slug when frontmatter is missing', () => {
