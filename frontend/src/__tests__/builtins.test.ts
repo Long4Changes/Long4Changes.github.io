@@ -305,4 +305,31 @@ describe('Builtin Shell Commands', () => {
       expect(res.type).toBe('editor')
     })
   })
+
+  describe('git-token command', () => {
+    it('blocks guest from setting git token', async () => {
+      const cmd = builtinCommands.find(c => c.name === 'git-token')!
+      const res = await cmd.execute({ ...baseContext, role: 'guest', args: ['set', 'ghp_secret'] })
+      expect(res.output).toContain('Permission denied')
+      expect(res.type).toBe('error')
+    })
+
+    it('sets, checks status, and clears token when root', async () => {
+      const cmd = builtinCommands.find(c => c.name === 'git-token')!
+      
+      // 1. Set token
+      const setRes = await cmd.execute({ ...baseContext, role: 'root', args: ['set', 'ghp_my_secret_token_1234'] })
+      expect(setRes.output).toContain('GitHub Personal Access Token saved')
+
+      // 2. Check status
+      const statusRes = await cmd.execute({ ...baseContext, role: 'root', args: ['status'] })
+      expect(statusRes.output).toContain('Two-way Git Sync: Enabled')
+      expect(statusRes.output).toContain('1234')
+      expect(statusRes.output).not.toContain('my_secret_token') // masked
+
+      // 3. Clear token
+      const clearRes = await cmd.execute({ ...baseContext, role: 'root', args: ['clear'] })
+      expect(clearRes.output).toContain('GitHub token cleared')
+    })
+  })
 })

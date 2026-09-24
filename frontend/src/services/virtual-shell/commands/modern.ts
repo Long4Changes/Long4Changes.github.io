@@ -455,7 +455,18 @@ const tldrPages: Record<string, string> = {
   :wq
 
 - Force quit without saving:
-  :q!`
+  :q!`,
+
+  'git-token': `git-token - Configure GitHub PAT for two-way Vim sync
+
+- Set GitHub Personal Access Token:
+  git-token set <ghp_your_token>
+
+- View token configuration status:
+  git-token status
+
+- Clear stored token:
+  git-token clear`
 }
 
 const tldrCommand: ShellCommand = {
@@ -484,14 +495,15 @@ NAVIGATION & SYSTEM
   rm       - Remove files or directories
 
 EDITORS & CONTENT
-  vim      - Full-screen Vim modal text editor
-  nvim     - Full-screen Neovim modal text editor
-  cat      - Print document contents in plain text
-  bat      - View document with line numbers and syntax framing
-  glow     - Render document in terminal Markdown styling
-  open     - Open document in graphic split card view
-  search   - Search knowledge base with BM25 & semantic indexing
-  ask      - RAG interactive AI assistant streaming responses
+  vim       - Full-screen Vim modal text editor
+  nvim      - Full-screen Neovim modal text editor
+  git-token - Configure GitHub PAT for two-way Vim sync
+  cat       - Print document contents in plain text
+  bat       - View document with line numbers and syntax framing
+  glow      - Render document in terminal Markdown styling
+  open      - Open document in graphic split card view
+  search    - Search knowledge base with BM25 & semantic indexing
+  ask       - RAG interactive AI assistant streaming responses
 
 UTILITIES & ADMIN
   neofetch - Display system information badge and mascot

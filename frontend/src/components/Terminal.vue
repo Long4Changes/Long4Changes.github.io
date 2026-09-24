@@ -438,19 +438,44 @@ async function handleCommand(cmd: string) {
   scrollToBottom()
 }
 
+import { getGitHubToken } from '../services/github-sync'
+
 async function onEditorSave(slug: string, content: string) {
-  await saveDocument(slug, content)
+  const saved = await saveDocument(slug, content)
   emit('document-updated', slug, content)
+
+  if (saved?.gitResult?.success) {
+    history.value.push({
+      prompt: promptStr.value,
+      command: '',
+      response: `[git] Committed '${slug}.md' directly to GitHub main (${saved.gitResult.commitSha?.slice(0, 7)}). Run 'git pull' locally to sync.`,
+      type: 'text'
+    })
+    scrollToBottom()
+  } else if (saved?.gitResult && !saved.gitResult.success) {
+    history.value.push({
+      prompt: promptStr.value,
+      command: '',
+      response: `[git warning] Saved locally, but GitHub sync failed: ${saved.gitResult.message}`,
+      type: 'error'
+    })
+    scrollToBottom()
+  }
 }
 
 function onEditorClose() {
   const prog = isNvimMode.value ? 'nvim' : 'vim'
   const fn = editorFilename.value
   isEditorOpen.value = false
+  const token = getGitHubToken()
+  const tip = (!token && role.value === 'root')
+    ? "\n(Tip: run 'git-token set <token>' to auto-commit directly to GitHub repo)"
+    : ''
+
   history.value.push({
     prompt: promptStr.value,
     command: '',
-    response: `[${prog}] '${fn}' closed.`,
+    response: `[${prog}] '${fn}' closed.${tip}`,
     type: 'text'
   })
   nextTick(() => {

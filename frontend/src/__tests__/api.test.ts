@@ -274,6 +274,31 @@ describe('API Service Unit & Auth Tests', () => {
     expect(putBody).toBe(JSON.stringify({ content: '# New Ark Backend Content' }))
     expect(putHeaders.Authorization).toBe('Bearer signed-root-jwt')
   })
+
+  it('saveDocument triggers GitHub sync if token is set and root', async () => {
+    setApiBase('')
+    setAuthSession('signed-root-jwt', 'root')
+    const { setGitHubToken, clearGitHubToken } = await import('../services/github-sync')
+    setGitHubToken('ghp_test_sync_token')
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    // 1. GET file info returns 404
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 }))
+    // 2. PUT creates new file
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          commit: { sha: 'git_sync_sha_888' }
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+
+    const doc = await saveDocument('my-post', '# My Content')
+    expect((doc as any).gitResult?.success).toBe(true)
+    expect((doc as any).gitResult?.commitSha).toBe('git_sync_sha_888')
+    clearGitHubToken()
+  })
 })
 
 

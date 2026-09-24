@@ -401,6 +401,67 @@ export const nvimCommand: ShellCommand = {
   }
 }
 
+import { getGitHubToken, setGitHubToken, clearGitHubToken, DEFAULT_REPO_OWNER, DEFAULT_REPO_NAME, DEFAULT_BRANCH } from '../../github-sync'
+
+export const gitTokenCommand: ShellCommand = {
+  name: 'git-token',
+  description: 'configure GitHub Personal Access Token for two-way Vim sync',
+  usage: 'git-token <set <token> | status | clear>',
+  aliases: ['token'],
+  execute: (ctx: ShellContext): CommandResult => {
+    const sub = ctx.args[0]
+    if (ctx.role !== 'root') {
+      return {
+        output: "Permission denied: 'git-token' requires root privileges. Run 'sudo su' to authenticate.",
+        type: 'error'
+      }
+    }
+
+    if (sub === 'set') {
+      const token = ctx.args[1]
+      if (!token) {
+        return {
+          output: 'git-token: missing token argument\nUsage: git-token set <ghp_your_token>',
+          type: 'error'
+        }
+      }
+      setGitHubToken(token)
+      return {
+        output: `[git] GitHub Personal Access Token saved.\nTwo-way Git sync is active. Saving in web Vim (:wq) will auto-commit directly to ${DEFAULT_REPO_OWNER}/${DEFAULT_REPO_NAME}:${DEFAULT_BRANCH}.`,
+        type: 'text'
+      }
+    }
+
+    if (sub === 'clear') {
+      clearGitHubToken()
+      return {
+        output: '[git] GitHub token cleared. Web Vim will now save only to local browser storage.',
+        type: 'text'
+      }
+    }
+
+    if (sub === 'status' || !sub) {
+      const current = getGitHubToken()
+      if (!current) {
+        return {
+          output: `Two-way Git Sync: Disabled (No GitHub token set)\n\nTo enable two-way sync:\n1. Generate a GitHub PAT (with 'repo' scope) on github.com/settings/tokens\n2. Run: git-token set <your_token>`,
+          type: 'text'
+        }
+      }
+      const masked = current.length > 8 ? `${current.slice(0, 4)}****${current.slice(-4)}` : '****'
+      return {
+        output: `Two-way Git Sync: Enabled\nTarget Repo: ${DEFAULT_REPO_OWNER}/${DEFAULT_REPO_NAME}\nBranch: ${DEFAULT_BRANCH}\nToken: ${masked}`,
+        type: 'text'
+      }
+    }
+
+    return {
+      output: `Unknown subcommand '${sub}'.\nUsage: git-token <set <token> | status | clear>`,
+      type: 'error'
+    }
+  }
+}
+
 export const builtinCommands: ShellCommand[] = [
   whoamiCommand,
   pwdCommand,
@@ -414,5 +475,6 @@ export const builtinCommands: ShellCommand[] = [
   mvCommand,
   rmCommand,
   vimCommand,
-  nvimCommand
+  nvimCommand,
+  gitTokenCommand
 ]

@@ -7,12 +7,15 @@ export interface DocumentItem {
   visibility?: Visibility
 }
 
+import type { GitHubSyncResult } from './github-sync'
+
 export interface DocumentDetail {
   slug: string
   title: string
   content: string
   visibility: Visibility
   updated_at?: string
+  gitResult?: GitHubSyncResult
 }
 
 export interface SearchResultItem {
@@ -272,14 +275,22 @@ export function renameDocument(oldSlug: string, newSlug: string) {
   }
 }
 
-export function removeDocument(slug: string) {
-  if (FALLBACK_DOCUMENTS[slug]) {
-    delete FALLBACK_DOCUMENTS[slug]
+import { commitDocumentToGitHub, deleteDocumentFromGitHub, getGitHubToken } from './github-sync'
+
+export async function removeDocument(slug: string): Promise<void> {
+  const cleanSlug = slug.replace(/\.md$/, '')
+  if (FALLBACK_DOCUMENTS[cleanSlug]) {
+    delete FALLBACK_DOCUMENTS[cleanSlug]
+  }
+  if (getGitHubToken() && getAuthRole() === 'root') {
+    await deleteDocumentFromGitHub(cleanSlug)
   }
 }
 
 export async function saveDocument(slug: string, content: string): Promise<DocumentDetail> {
   const cleanSlug = slug.replace(/\.md$/, '')
+  let docToReturn: DocumentDetail | null = null
+
   if (apiBase) {
     try {
       const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(cleanSlug)}`, {
@@ -296,28 +307,41 @@ export async function saveDocument(slug: string, content: string): Promise<Docum
           FALLBACK_DOCUMENTS[cleanSlug].content = content
           FALLBACK_DOCUMENTS[cleanSlug].updated_at = data.updated_at || new Date().toISOString()
         }
-        return data
+        docToReturn = data
       }
     } catch {
       // Fallback to local storage update
     }
   }
 
-  if (FALLBACK_DOCUMENTS[cleanSlug]) {
-    FALLBACK_DOCUMENTS[cleanSlug].content = content
-    FALLBACK_DOCUMENTS[cleanSlug].updated_at = new Date().toISOString()
-    return FALLBACK_DOCUMENTS[cleanSlug]
+  if (!docToReturn) {
+    if (FALLBACK_DOCUMENTS[cleanSlug]) {
+      FALLBACK_DOCUMENTS[cleanSlug].content = content
+      FALLBACK_DOCUMENTS[cleanSlug].updated_at = new Date().toISOString()
+      docToReturn = FALLBACK_DOCUMENTS[cleanSlug]
+    } else {
+      const newDoc: DocumentDetail = {
+        slug: cleanSlug,
+        title: cleanSlug,
+        content,
+        visibility: 'public',
+        updated_at: new Date().toISOString()
+      }
+      FALLBACK_DOCUMENTS[cleanSlug] = newDoc
+      docToReturn = newDoc
+    }
   }
 
-  const newDoc: DocumentDetail = {
-    slug: cleanSlug,
-    title: cleanSlug,
-    content,
-    visibility: 'public',
-    updated_at: new Date().toISOString()
+  // Trigger two-way GitHub direct commit if token is configured and caller is root
+  if (getGitHubToken() && getAuthRole() === 'root') {
+    const gitRes = await commitDocumentToGitHub(cleanSlug, content)
+    docToReturn = {
+      ...docToReturn,
+      gitResult: gitRes
+    }
   }
-  FALLBACK_DOCUMENTS[cleanSlug] = newDoc
-  return newDoc
+
+  return docToReturn
 }
 
 export async function searchDocuments(query: string, limit: number = 5): Promise<SearchResultItem[]> {
