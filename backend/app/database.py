@@ -16,4 +16,9 @@ async def get_session() -> AsyncSession:
 
 async def init_db():
     async with engine.begin() as conn:
+        from sqlalchemy import text
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        except Exception:
+            pass
         await conn.run_sync(SQLModel.metadata.create_all)
