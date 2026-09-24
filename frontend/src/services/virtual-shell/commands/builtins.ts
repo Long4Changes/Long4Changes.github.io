@@ -334,6 +334,12 @@ export const vimCommand: ShellCommand = {
   usage: 'vim <slug>',
   aliases: ['vi'],
   execute: (ctx: ShellContext): CommandResult => {
+    if (ctx.role !== 'root') {
+      return {
+        output: "Permission denied: 'vim' requires root privileges. Run 'sudo su' or 'auth' to authenticate.",
+        type: 'error'
+      }
+    }
     const rawTarget = ctx.args[0]
     if (!rawTarget) {
       return {
@@ -364,6 +370,12 @@ export const nvimCommand: ShellCommand = {
   description: 'Neovim, modern Vim-based text editor',
   usage: 'nvim <slug>',
   execute: (ctx: ShellContext): CommandResult => {
+    if (ctx.role !== 'root') {
+      return {
+        output: "Permission denied: 'nvim' requires root privileges. Run 'sudo su' or 'auth' to authenticate.",
+        type: 'error'
+      }
+    }
     const rawTarget = ctx.args[0]
     if (!rawTarget) {
       return {

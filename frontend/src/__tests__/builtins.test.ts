@@ -235,18 +235,34 @@ describe('Builtin Shell Commands', () => {
   })
 
   describe('vim and nvim commands', () => {
-    it('vim requires document slug argument', async () => {
+    it('vim blocks guest with permission denied error', async () => {
       const vimCmd = builtinCommands.find(c => c.name === 'vim')!
-      const res = await vimCmd.execute(baseContext)
+      const res = await vimCmd.execute({
+        ...baseContext,
+        role: 'guest',
+        args: ['ark.md']
+      })
+      expect(res.output).toContain("Permission denied: 'vim' requires root")
+      expect(res.type).toBe('error')
+    })
+
+    it('vim requires document slug argument when root', async () => {
+      const vimCmd = builtinCommands.find(c => c.name === 'vim')!
+      const res = await vimCmd.execute({
+        ...baseContext,
+        role: 'root',
+        args: []
+      })
       expect(res.output).toContain('missing document slug argument')
       expect(res.type).toBe('error')
     })
 
-    it('vim triggers openEditor callback on context', async () => {
+    it('vim triggers openEditor callback on context when root', async () => {
       const vimCmd = builtinCommands.find(c => c.name === 'vim')!
       const openEditorMock = vi.fn()
       const res = await vimCmd.execute({
         ...baseContext,
+        role: 'root',
         args: ['ark.md'],
         openEditor: openEditorMock
       })
@@ -254,18 +270,34 @@ describe('Builtin Shell Commands', () => {
       expect(res.type).toBe('editor')
     })
 
-    it('nvim requires document slug argument', async () => {
+    it('nvim blocks guest with permission denied error', async () => {
       const nvimCmd = builtinCommands.find(c => c.name === 'nvim')!
-      const res = await nvimCmd.execute(baseContext)
+      const res = await nvimCmd.execute({
+        ...baseContext,
+        role: 'guest',
+        args: ['articles']
+      })
+      expect(res.output).toContain("Permission denied: 'nvim' requires root")
+      expect(res.type).toBe('error')
+    })
+
+    it('nvim requires document slug argument when root', async () => {
+      const nvimCmd = builtinCommands.find(c => c.name === 'nvim')!
+      const res = await nvimCmd.execute({
+        ...baseContext,
+        role: 'root',
+        args: []
+      })
       expect(res.output).toContain('missing document slug argument')
       expect(res.type).toBe('error')
     })
 
-    it('nvim triggers openEditor callback on context with isNvim=true', async () => {
+    it('nvim triggers openEditor callback on context with isNvim=true when root', async () => {
       const nvimCmd = builtinCommands.find(c => c.name === 'nvim')!
       const openEditorMock = vi.fn()
       const res = await nvimCmd.execute({
         ...baseContext,
+        role: 'root',
         args: ['articles'],
         openEditor: openEditorMock
       })

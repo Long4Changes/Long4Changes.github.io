@@ -378,6 +378,16 @@ async function handleCommand(cmd: string) {
         emit('remove-document', slug)
       },
       openEditor: async (slug: string, isNvim: boolean) => {
+        if (role.value !== 'root') {
+          history.value.push({
+            prompt: currentPrompt,
+            command: trimmedCmd,
+            response: `Permission denied: '${isNvim ? 'nvim' : 'vim'}' requires root privileges. Run 'sudo su' or 'auth' to authenticate.`,
+            type: 'error'
+          })
+          scrollToBottom()
+          return
+        }
         try {
           const doc = await fetchDocument(slug)
           editorSlug.value = doc.slug
@@ -556,7 +566,7 @@ defineExpose({
 })
 
 watch(() => props.isActive, (active) => {
-  if (active) {
+  if (active && !isEditorOpen.value) {
     nextTick(() => {
       inputElement.value?.focus()
     })
@@ -564,10 +574,13 @@ watch(() => props.isActive, (active) => {
 })
 
 onMounted(() => {
-  inputElement.value?.focus()
+  if (!isEditorOpen.value) {
+    inputElement.value?.focus()
+  }
 })
 
 function focusInput() {
+  if (isEditorOpen.value) return
   inputElement.value?.focus()
 }
 </script>
@@ -650,6 +663,7 @@ function focusInput() {
       <input
         :type="isPasswordMode ? 'password' : 'text'"
         class="hidden-input"
+        :disabled="isEditorOpen"
         v-model="inputBuffer"
         @input="onInput"
         @keydown="onKeyDown"

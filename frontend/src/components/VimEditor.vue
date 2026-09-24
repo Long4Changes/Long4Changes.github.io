@@ -77,21 +77,59 @@ function handleWriteAndQuit() {
   emit('close')
 }
 
-// Register custom Ex commands for this session
+// Register custom Ex commands and Vim keymaps
 function registerExCommands() {
   try {
+    // Map standard Vim exits
+    Vim.map('ZZ', ':wq<CR>', 'normal')
+    Vim.map('ZQ', ':q!<CR>', 'normal')
+    Vim.map('<C-c>', '<Esc>', 'insert')
+    Vim.map('<C-[>', '<Esc>', 'insert')
+
     Vim.defineEx('write', 'w', () => {
       handleSave()
     })
     Vim.defineEx('quit', 'q', (_cm: any, params: any) => {
-      const force = params?.input?.includes('!') || false
+      const force = params?.input?.includes('!') || params?.argString === '!' || false
       handleQuit(force)
     })
     Vim.defineEx('wq', 'wq', () => {
       handleWriteAndQuit()
     })
+    Vim.defineEx('xit', 'x', () => {
+      handleWriteAndQuit()
+    })
   } catch {
     // Ignore if already registered
+  }
+}
+
+function onGlobalKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' || (e.ctrlKey && (e.key === '[' || e.key === 'c'))) {
+    // If an Ex command dialog input is open, let dialog close
+    const activeEl = document.activeElement as HTMLElement
+    if (activeEl && activeEl.closest('.cm-vim-panel')) {
+      return
+    }
+
+    e.preventDefault()
+    e.stopPropagation()
+    if (editorView) {
+      const cm = getCM(editorView)
+      if (cm) {
+        Vim.handleKey(cm, '<Esc>', 'user')
+        Vim.exitInsertMode(cm as any)
+      }
+      currentMode.value = 'NORMAL'
+      editorView.focus()
+    }
+  }
+}
+
+function handleContainerClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (target && !target.closest('.cm-vim-panel') && target.tagName !== 'BUTTON') {
+    editorView?.focus()
   }
 }
 
@@ -100,6 +138,7 @@ onMounted(async () => {
   if (!editorHost.value) return
 
   registerExCommands()
+  window.addEventListener('keydown', onGlobalKeyDown, true)
 
   const retroTheme = EditorView.theme({
     '&': {
@@ -138,9 +177,22 @@ onMounted(async () => {
     '.cm-vim-panel': {
       backgroundColor: 'var(--surface, #fefefe)',
       color: 'var(--text, #1f1f1f)',
-      borderTop: '1px solid var(--border, #e0e0e0)',
+      borderTop: '1px solid var(--border, #1f1f1f)',
       fontFamily: 'inherit',
-      padding: '2px 8px'
+      fontSize: '13px',
+      padding: '2px 8px',
+      display: 'flex',
+      alignItems: 'center'
+    },
+    '.cm-vim-panel input': {
+      backgroundColor: 'transparent',
+      color: 'inherit',
+      fontFamily: 'inherit',
+      fontSize: 'inherit',
+      border: 'none',
+      outline: 'none',
+      padding: '0 4px',
+      caretColor: 'var(--text, #1f1f1f)'
     },
     '.cm-fat-cursor': {
       backgroundColor: 'var(--text, #1f1f1f) !important',
@@ -163,8 +215,8 @@ onMounted(async () => {
   const state = EditorState.create({
     doc: props.initialContent,
     extensions: [
+      vim(),
       basicSetup,
-      vim({ status: true }),
       markdown(),
       retroTheme,
       updateListener
@@ -198,6 +250,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeyDown, true)
   if (editorView) {
     editorView.destroy()
     editorView = null
@@ -207,7 +260,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="vim-fullscreen-container" data-testid="vim-editor">
+    <div class="vim-fullscreen-container" data-testid="vim-editor" @click="handleContainerClick">
       <!-- Top ASCII Retro Title Bar -->
       <header class="vim-titlebar">
         <div class="titlebar-left">

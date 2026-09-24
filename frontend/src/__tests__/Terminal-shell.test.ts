@@ -144,11 +144,30 @@ describe('Terminal with Virtual Shell Integration', () => {
     expect(wrapper.text()).toContain("cannot remove 'ark.md': Permission denied")
   })
 
-  it('opens vim editor when executing vim <slug>', async () => {
+  it('blocks guest from opening vim editor', async () => {
     const wrapper = mount(Terminal, {
       props: { catalog: ['ark', 'articles'], isActive: true },
       attachTo: document.body
     })
+    const input = wrapper.find('input')
+    await input.setValue('vim ark')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const editor = document.body.querySelector('[data-testid="vim-editor"]')
+    expect(editor).toBeNull()
+    expect(wrapper.text()).toContain("Permission denied: 'vim' requires root")
+    wrapper.unmount()
+  })
+
+  it('opens vim editor when executing vim <slug> as root', async () => {
+    const wrapper = mount(Terminal, {
+      props: { catalog: ['ark', 'articles'], isActive: true },
+      attachTo: document.body
+    })
+    // Switch to root
+    wrapper.vm.role = 'root'
+
     const input = wrapper.find('input')
     await input.setValue('vim ark')
     await input.trigger('keydown', { key: 'Enter' })
@@ -161,11 +180,14 @@ describe('Terminal with Virtual Shell Integration', () => {
     wrapper.unmount()
   })
 
-  it('opens nvim editor when executing nvim <slug>', async () => {
+  it('opens nvim editor when executing nvim <slug> as root', async () => {
     const wrapper = mount(Terminal, {
       props: { catalog: ['ark', 'articles'], isActive: true },
       attachTo: document.body
     })
+    // Switch to root
+    wrapper.vm.role = 'root'
+
     const input = wrapper.find('input')
     await input.setValue('nvim ark')
     await input.trigger('keydown', { key: 'Enter' })
