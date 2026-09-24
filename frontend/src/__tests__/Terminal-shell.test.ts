@@ -78,16 +78,16 @@ describe('Terminal with Virtual Shell Integration', () => {
 
   it('executes bat and renders bordered file header with line numbers', async () => {
     const wrapper = mount(Terminal, {
-      props: { catalog: ['ark'], isActive: true }
+      props: { catalog: ['hello-world'], isActive: true }
     })
     const input = wrapper.find('input')
 
-    await input.setValue('bat ark')
+    await input.setValue('bat hello-world')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('File: ark.md')
-    expect(wrapper.text()).toContain('扁舟 (Ark Project)')
+    expect(wrapper.text()).toContain('File: hello-world.md')
+    expect(wrapper.text()).toContain('你好，世界')
   })
 
   it('completes tldr subcommands on Tab', async () => {
@@ -169,34 +169,34 @@ describe('Terminal with Virtual Shell Integration', () => {
     wrapper.vm.role = 'root'
 
     const input = wrapper.find('input')
-    await input.setValue('vim ark')
+    await input.setValue('vim hello-world')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
     const editor = document.body.querySelector('[data-testid="vim-editor"]')
     expect(editor).not.toBeNull()
     expect(editor?.textContent).toContain('[VIM]')
-    expect(editor?.textContent).toContain('ark.md')
+    expect(editor?.textContent).toContain('hello-world.md')
     wrapper.unmount()
   })
 
   it('opens nvim editor when executing nvim <slug> as root', async () => {
     const wrapper = mount(Terminal, {
-      props: { catalog: ['ark', 'articles'], isActive: true },
+      props: { catalog: ['hello-world'], isActive: true },
       attachTo: document.body
     })
     // Switch to root
     wrapper.vm.role = 'root'
 
     const input = wrapper.find('input')
-    await input.setValue('nvim ark')
+    await input.setValue('nvim hello-world')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
     const editor = document.body.querySelector('[data-testid="vim-editor"]')
     expect(editor).not.toBeNull()
     expect(editor?.textContent).toContain('[NVIM]')
-    expect(editor?.textContent).toContain('ark.md')
+    expect(editor?.textContent).toContain('hello-world.md')
     wrapper.unmount()
   })
 })

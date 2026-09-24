@@ -45,7 +45,7 @@ function toggleExpand() {
         <div class="meta-row">
           <span class="meta-prefix">│</span>
           <span class="meta-label">Shell :</span>
-          <span class="meta-value">Ready below. Type 'help', 'ls', or 'open ark' to explore.</span>
+          <span class="meta-value">Ready below. Type 'help', 'ls', or 'open hello-world' to explore.</span>
         </div>
       </div>
 

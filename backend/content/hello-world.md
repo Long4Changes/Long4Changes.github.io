@@ -13,4 +13,9 @@ visibility: public
 - 输入 `cat hello-world` 查看全文
 - 输入 `open hello-world` 在分屏视窗中阅读
 
+```python
+def hello():
+    print("Hello, Long4Changes!")
+```
+
 你好，我是梁晨。

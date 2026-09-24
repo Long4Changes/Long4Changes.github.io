@@ -24,7 +24,7 @@ describe('SiteIntro Component', () => {
     // Check identity role
     expect(wrapper.text()).toContain('Independent Developer / Vibe Coding Enthusiast')
     // Check hint
-    expect(wrapper.text()).toContain("Type 'help', 'ls', or 'open ark'")
+    expect(wrapper.text()).toContain("Type 'help', 'ls', or 'open hello-world'")
   })
 
   it('supports toggle collapse and expand', async () => {

@@ -37,14 +37,12 @@ Here is content without frontmatter.
   it('loads real markdown files from src/content directory', () => {
     const docs = loadStaticDocuments()
     expect(docs).toBeDefined()
-    expect(Object.keys(docs).length).toBeGreaterThanOrEqual(3)
+    expect(Object.keys(docs).length).toBeGreaterThanOrEqual(1)
 
-    // Verify standard articles exist
-    expect(docs['ark']).toBeDefined()
-    expect(docs['ark'].title).toContain('扁舟')
-    expect(docs['articles']).toBeDefined()
-    expect(docs['about']).toBeDefined()
+    // Verify user article exists
     expect(docs['hello-world']).toBeDefined()
     expect(docs['hello-world'].title).toContain('你好，世界')
+    expect(docs['hello-world'].visibility).toBe('public')
+    expect(docs['hello-world'].content).toContain('这是直接保存在本地')
   })
 })

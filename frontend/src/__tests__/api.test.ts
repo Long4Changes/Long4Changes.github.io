@@ -24,19 +24,17 @@ describe('API Service Unit & Auth Tests', () => {
   it('falls back to local document catalog if backend is unreachable', async () => {
     setApiBase('')
     const catalog = await fetchDocumentCatalog()
-    expect(catalog.length).toBeGreaterThanOrEqual(3)
+    expect(catalog.length).toBeGreaterThanOrEqual(1)
     const slugs = catalog.map(c => c.slug)
-    expect(slugs).toContain('ark')
-    expect(slugs).toContain('articles')
-    expect(slugs).toContain('about')
+    expect(slugs).toContain('hello-world')
   })
 
   it('falls back to local document detail for public docs if backend is unreachable', async () => {
     setApiBase('')
-    const doc = await fetchDocument('ark')
-    expect(doc.slug).toBe('ark')
-    expect(doc.title).toContain('扁舟')
-    expect(doc.content).toContain('这是一艘飞船。')
+    const doc = await fetchDocument('hello-world')
+    expect(doc.slug).toBe('hello-world')
+    expect(doc.title).toContain('你好，世界')
+    expect(doc.content).toContain('这是直接保存在本地')
     expect(doc.visibility).toBe('public')
   })
 
@@ -226,7 +224,7 @@ describe('API Service Unit & Auth Tests', () => {
     setAuthSession('dummy-token', 'root')
     const result = await syncDocuments()
     expect(result.status).toBe('synchronized')
-    expect(result.total).toBeGreaterThanOrEqual(3)
+    expect(result.total).toBeGreaterThanOrEqual(1)
   })
 
   it('authenticates offline fallback with liangchen passkey', async () => {
@@ -239,12 +237,12 @@ describe('API Service Unit & Auth Tests', () => {
 
   it('saveDocument updates local fallback catalog when offline/fallback mode', async () => {
     setApiBase('')
-    const doc = await saveDocument('ark', '# Updated Ark Content')
-    expect(doc.slug).toBe('ark')
-    expect(doc.content).toBe('# Updated Ark Content')
+    const doc = await saveDocument('hello-world', '# Updated Hello World Content')
+    expect(doc.slug).toBe('hello-world')
+    expect(doc.content).toBe('# Updated Hello World Content')
 
-    const fetched = await fetchDocument('ark')
-    expect(fetched.content).toBe('# Updated Ark Content')
+    const fetched = await fetchDocument('hello-world')
+    expect(fetched.content).toBe('# Updated Hello World Content')
   })
 
   it('saveDocument sends PUT request with auth headers when backend is configured', async () => {

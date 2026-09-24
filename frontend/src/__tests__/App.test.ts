@@ -42,9 +42,7 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     await input.setValue('ls docs')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
-    expect(wrapper.text()).toContain('ark.md')
-    expect(wrapper.text()).toContain('articles.md')
-    expect(wrapper.text()).toContain('about.md')
+    expect(wrapper.text()).toContain('hello-world.md')
     
     // Test clear command
     await input.setValue('clear')
@@ -59,15 +57,15 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     expect(wrapper.find('.window-pane').exists()).toBe(false)
 
     const input = wrapper.find('input')
-    await input.setValue('open ark')
+    await input.setValue('open hello-world')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
     // WindowCard should appear
     expect(wrapper.find('.window-pane').exists()).toBe(true)
-    expect(wrapper.text()).toContain('|_ark.exe')
-    expect(wrapper.text()).toContain('扁舟 (Ark Project)')
-    expect(wrapper.text()).toContain('这是一艘飞船。')
+    expect(wrapper.text()).toContain('|_hello-world.exe')
+    expect(wrapper.text()).toContain('你好，世界')
+    expect(wrapper.text()).toContain('这是直接保存在本地')
 
     // Code block with syntax highlighting should be rendered
     const codeBlock = wrapper.find('pre.code-block code.hljs')
@@ -363,19 +361,19 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     await flushPromises()
     expect((input.element as HTMLInputElement).value).toBe('clear ')
 
-    // 3. Tab autocomplete document slug with unique prefix: "open ab" -> "open about"
-    await input.setValue('open ab')
+    // 3. Tab autocomplete document slug with unique prefix: "open he" -> "open hello-world"
+    await input.setValue('open he')
     await input.trigger('keydown', { key: 'Tab' })
     await flushPromises()
-    expect((input.element as HTMLInputElement).value).toBe('open about')
+    expect((input.element as HTMLInputElement).value).toBe('open hello-world')
 
-    // 4. Tab autocomplete with multiple candidates: "open a" displays candidates in terminal
-    await input.setValue('open a')
+    // 4. Tab autocomplete with multiple candidates: "c" displays candidates in terminal
+    await input.setValue('c')
     await input.trigger('keydown', { key: 'Tab' })
     await flushPromises()
-    expect(wrapper.text()).toContain('ark')
-    expect(wrapper.text()).toContain('articles')
-    expect(wrapper.text()).toContain('about')
+    expect(wrapper.text()).toContain('cat')
+    expect(wrapper.text()).toContain('cd')
+    expect(wrapper.text()).toContain('clear')
 
     // 5. Tab autocomplete sub-command: "sudo " -> "sudo su"
     await input.setValue('sudo ')

@@ -86,61 +86,9 @@ export function clearAuthSession() {
 
 import { loadStaticDocuments, parseMarkdownWithFrontmatter } from './content-loader'
 
-// ADR 0001: Only public documents are bundled for offline fallback
+// ADR 0001: Only documents from content/ are bundled for static fallback
 const staticDocs = loadStaticDocuments()
 export const FALLBACK_DOCUMENTS: Record<string, DocumentDetail> = {
-  ark: {
-    slug: 'ark',
-    title: '扁舟 (Ark Project)',
-    content: `# 扁舟 (Ark Project)
-
-> 「在星际迷航与记忆回廊中穿行的黑客终端。」
-
-这是一艘飞船。在星际空间中穿行，提供知识归档与检索。
-
-## 系统概述
-扁舟是一个基于语义向量检索与大模型问答的个人知识库系统。
-采用纯黑白高对比、零圆角、零阴影的 ASCII 视窗卡片交互。
-
-\`\`\`python
-# 示例语义检索核心调用
-def vector_search(query: str, limit: int = 5):
-    return db.query("SELECT * FROM chunks WHERE cosine_dist(vec, q) < 0.3")
-\`\`\`
-
-## 交互指令
-- 输入 \`help\` 查看可用指令列表
-- 输入 \`search <关键词>\` 触发向量语义检索
-- 输入 \`open <slug>\` 或 \`cat <slug>\` 打开对应卡片视窗
-`,
-    visibility: 'public'
-  },
-  articles: {
-    slug: 'articles',
-    title: '文章索引 (Articles)',
-    content: `# 归档文章与手记
-
-## 目录
-1. **01_arch**: 关于极简终端交互界面的设计思考
-2. **02_vector**: 向量数据库与 pgvector 实践
-3. **03_deepseek**: 本地与私有化知识库问答构建
-
-输入 \`search <query>\` 可跨文章进行切片检索。
-`,
-    visibility: 'public'
-  },
-  about: {
-    slug: 'about',
-    title: '关于作者 (About)',
-    content: `# 关于 Long4Changes
-
-软件工程师 / 系统黑客 / 开源爱好者。
-
-- GitHub: [Long4Changes](https://github.com/Long4Changes)
-- 理念: 简约、确定性、高信息密度。
-`,
-    visibility: 'public'
-  },
   ...staticDocs
 }
 

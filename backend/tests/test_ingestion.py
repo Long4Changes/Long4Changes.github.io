@@ -47,9 +47,9 @@ async def test_database_ingestion():
     os.environ["MOCK_EMBEDDINGS"] = "1"
     
     async with async_session() as db:
-        with open("backend/content/sample-public.md", "r") as f:
+        with open("backend/tests/fixtures/sample-public.md", "r") as f:
             await ingest_document(f.read(), db)
-        with open("backend/content/sample-private.md", "r") as f:
+        with open("backend/tests/fixtures/sample-private.md", "r") as f:
             await ingest_document(f.read(), db)
             
     async with async_session() as db:
