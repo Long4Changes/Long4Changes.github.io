@@ -1,8 +1,3 @@
----
-title: 你好，世界 (Hello World)
-slug: hello-world
-visibility: public
----
 
 # 你好，世界
 
@@ -11,3 +6,6 @@ visibility: public
 
 - 输入 `cat hello-world` 查看全文
 - 输入 `open hello-world` 在分屏视窗中阅读
+
+
+你好，我是梁晨。
