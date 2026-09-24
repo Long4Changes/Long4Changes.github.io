@@ -10,6 +10,7 @@ import {
   fetchDocument,
   renameDocument,
   removeDocument,
+  saveDocument,
   type SearchResultItem,
   type CitationItem,
   type Role
@@ -17,6 +18,7 @@ import {
 import { defaultShellRegistry } from '../services/virtual-shell/registry'
 import { vfs } from '../services/virtual-shell/vfs'
 import type { ShellContext } from '../services/virtual-shell/types'
+import VimEditor from './VimEditor.vue'
 
 interface HistoryItem {
   prompt?: string
@@ -39,7 +41,14 @@ const emit = defineEmits<{
   (e: 'auth-change', role: Role): void
   (e: 'rename-document', oldSlug: string, newSlug: string): void
   (e: 'remove-document', slug: string): void
+  (e: 'document-updated', slug: string, content: string): void
 }>()
+
+const isEditorOpen = ref(false)
+const editorSlug = ref('')
+const editorFilename = ref('')
+const editorContent = ref('')
+const isNvimMode = ref(false)
 
 const history = ref<HistoryItem[]>([])
 const inputBuffer = ref('')
@@ -367,6 +376,24 @@ async function handleCommand(cmd: string) {
       removeDocument: (slug: string) => {
         removeDocument(slug)
         emit('remove-document', slug)
+      },
+      openEditor: async (slug: string, isNvim: boolean) => {
+        try {
+          const doc = await fetchDocument(slug)
+          editorSlug.value = doc.slug
+          editorFilename.value = `${doc.slug}.md`
+          editorContent.value = doc.content
+          isNvimMode.value = isNvim
+          isEditorOpen.value = true
+        } catch (err: any) {
+          history.value.push({
+            prompt: currentPrompt,
+            command: trimmedCmd,
+            response: err.message || `Document '${slug}' not found.`,
+            type: 'error'
+          })
+          scrollToBottom()
+        }
       }
     }
     try {
@@ -374,12 +401,14 @@ async function handleCommand(cmd: string) {
       if (res.newCwd) {
         cwd.value = res.newCwd
       }
-      history.value.push({
-        prompt: currentPrompt,
-        command: trimmedCmd,
-        response: res.output,
-        type: (res.type as any) || 'text'
-      })
+      if (res.output || res.type !== 'editor') {
+        history.value.push({
+          prompt: currentPrompt,
+          command: trimmedCmd,
+          response: res.output,
+          type: (res.type as any) || 'text'
+        })
+      }
     } catch (err: any) {
       history.value.push({
         prompt: currentPrompt,
@@ -397,6 +426,27 @@ async function handleCommand(cmd: string) {
   }
 
   scrollToBottom()
+}
+
+async function onEditorSave(slug: string, content: string) {
+  await saveDocument(slug, content)
+  emit('document-updated', slug, content)
+}
+
+function onEditorClose() {
+  const prog = isNvimMode.value ? 'nvim' : 'vim'
+  const fn = editorFilename.value
+  isEditorOpen.value = false
+  history.value.push({
+    prompt: promptStr.value,
+    command: '',
+    response: `[${prog}] '${fn}' closed.`,
+    type: 'text'
+  })
+  nextTick(() => {
+    inputElement.value?.focus()
+    scrollToBottom()
+  })
 }
 
 function scrollToBottom() {
@@ -611,6 +661,18 @@ function focusInput() {
         spellcheck="false"
       />
     </div>
+
+    <!-- Full-screen Vim/Neovim Takeover Modal -->
+    <VimEditor
+      v-if="isEditorOpen"
+      :slug="editorSlug"
+      :filename="editorFilename"
+      :initial-content="editorContent"
+      :role="role"
+      :is-nvim="isNvimMode"
+      @save="onEditorSave"
+      @close="onEditorClose"
+    />
   </div>
 </template>
 

@@ -87,4 +87,27 @@ describe('ShellRegistry and Dispatcher', () => {
     expect(autoRmSlug.matches).toContain('rm ark')
     expect(autoRmSlug.matches).toContain('rm articles')
   })
+
+  it('provides autocomplete candidates for vim and nvim', () => {
+    const autoV = defaultShellRegistry.getAutocomplete('vi', baseContext)
+    expect(autoV.matches).toContain('vim')
+
+    const autoN = defaultShellRegistry.getAutocomplete('nv', baseContext)
+    expect(autoN.matches).toContain('nvim')
+
+    const autoTldrVim = defaultShellRegistry.getAutocomplete('tldr vi', baseContext)
+    expect(autoTldrVim.matches).toContain('tldr vim')
+
+    const autoTldrNvim = defaultShellRegistry.getAutocomplete('tldr nv', baseContext)
+    expect(autoTldrNvim.matches).toContain('tldr nvim')
+
+    const autoVimSlug = defaultShellRegistry.getAutocomplete('vim ar', baseContext)
+    expect(autoVimSlug.matches).toContain('vim ark')
+    expect(autoVimSlug.matches).toContain('vim articles')
+
+    const autoNvimSlug = defaultShellRegistry.getAutocomplete('nvim ar', baseContext)
+    expect(autoNvimSlug.matches).toContain('nvim ark')
+    expect(autoNvimSlug.matches).toContain('nvim articles')
+  })
 })
+

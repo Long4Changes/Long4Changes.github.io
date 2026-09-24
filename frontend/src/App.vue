@@ -70,6 +70,12 @@ function handleRemoveDocument(slug: string) {
   }
 }
 
+function handleDocumentUpdated(slug: string, content: string) {
+  if (activeSlug.value === slug) {
+    activeContent.value = content
+  }
+}
+
 onMounted(() => {
   loadCatalog()
 })
@@ -87,6 +93,7 @@ onMounted(() => {
           @auth-change="handleAuthChange"
           @rename-document="handleRenameDocument"
           @remove-document="handleRemoveDocument"
+          @document-updated="handleDocumentUpdated"
           :isActive="!isWindowOpen"
         />
       </div>

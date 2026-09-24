@@ -9,9 +9,10 @@ export interface ShellContext {
   setCwd: (newCwd: string) => void
   renameDocument?: (oldSlug: string, newSlug: string) => void
   removeDocument?: (slug: string) => void
+  openEditor?: (slug: string, isNvim: boolean) => void
 }
 
-export type CommandOutputType = 'text' | 'bat' | 'glow' | 'neofetch' | 'search-results' | 'rag-answer' | 'error'
+export type CommandOutputType = 'text' | 'bat' | 'glow' | 'neofetch' | 'search-results' | 'rag-answer' | 'error' | 'editor'
 
 export interface CommandResult {
   output: string

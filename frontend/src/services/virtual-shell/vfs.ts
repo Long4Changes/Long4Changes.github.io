@@ -23,10 +23,14 @@ export class VirtualFileSystem {
     '/bin/mv*',
     '/bin/neofetch',
     '/bin/neofetch*',
+    '/bin/nvim',
+    '/bin/nvim*',
     '/bin/rm',
     '/bin/rm*',
     '/bin/tldr',
-    '/bin/tldr*'
+    '/bin/tldr*',
+    '/bin/vim',
+    '/bin/vim*'
   ])
 
   /**
@@ -131,7 +135,7 @@ export class VirtualFileSystem {
       case '/docs':
         return catalog.map(slug => (slug.endsWith('.md') ? slug : `${slug}.md`)).sort()
       case '/bin':
-        return ['bat*', 'cat*', 'glow*', 'ls*', 'mv*', 'neofetch*', 'rm*', 'tldr*']
+        return ['bat*', 'cat*', 'glow*', 'ls*', 'mv*', 'neofetch*', 'nvim*', 'rm*', 'tldr*', 'vim*']
       case '/etc':
         return ['motd', 'os-release']
       case '/home':

@@ -10,6 +10,7 @@ import {
   getAuthRole,
   getAuthToken,
   syncDocuments,
+  saveDocument,
   setApiBase
 } from '../services/api'
 
@@ -235,6 +236,45 @@ describe('API Service Unit & Auth Tests', () => {
     expect(res.role).toBe('root')
     expect(getAuthRole()).toBe('root')
   })
+
+  it('saveDocument updates local fallback catalog when offline/fallback mode', async () => {
+    setApiBase('')
+    const doc = await saveDocument('ark', '# Updated Ark Content')
+    expect(doc.slug).toBe('ark')
+    expect(doc.content).toBe('# Updated Ark Content')
+
+    const fetched = await fetchDocument('ark')
+    expect(fetched.content).toBe('# Updated Ark Content')
+  })
+
+  it('saveDocument sends PUT request with auth headers when backend is configured', async () => {
+    setApiBase('http://localhost:8000')
+    setAuthSession('signed-root-jwt', 'root')
+
+    let putBody = ''
+    let putHeaders: any = {}
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async (_url, init) => {
+      putBody = init?.body as string
+      putHeaders = init?.headers
+      return new Response(JSON.stringify({
+        slug: 'ark',
+        title: '扁舟 (Ark Project)',
+        content: '# New Ark Backend Content',
+        visibility: 'public',
+        updated_at: '2026-09-24T12:00:00Z'
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    })
+
+    const updated = await saveDocument('ark.md', '# New Ark Backend Content')
+    expect(updated.slug).toBe('ark')
+    expect(updated.content).toBe('# New Ark Backend Content')
+    expect(putBody).toBe(JSON.stringify({ content: '# New Ark Backend Content' }))
+    expect(putHeaders.Authorization).toBe('Bearer signed-root-jwt')
+  })
 })
+
 
 

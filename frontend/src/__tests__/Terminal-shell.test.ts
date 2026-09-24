@@ -8,6 +8,17 @@ describe('Terminal with Virtual Shell Integration', () => {
     vi.restoreAllMocks()
     clearAuthSession()
     setApiBase('')
+
+    if (typeof Range !== 'undefined') {
+      if (!Range.prototype.getClientRects) {
+        Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+      }
+      if (!Range.prototype.getBoundingClientRect) {
+        Range.prototype.getBoundingClientRect = () => ({
+          top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => {}
+        }) as DOMRect
+      }
+    }
   })
 
   it('executes neofetch and renders system specs in terminal stream', async () => {
@@ -132,4 +143,39 @@ describe('Terminal with Virtual Shell Integration', () => {
 
     expect(wrapper.text()).toContain("cannot remove 'ark.md': Permission denied")
   })
+
+  it('opens vim editor when executing vim <slug>', async () => {
+    const wrapper = mount(Terminal, {
+      props: { catalog: ['ark', 'articles'], isActive: true },
+      attachTo: document.body
+    })
+    const input = wrapper.find('input')
+    await input.setValue('vim ark')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const editor = document.body.querySelector('[data-testid="vim-editor"]')
+    expect(editor).not.toBeNull()
+    expect(editor?.textContent).toContain('[VIM]')
+    expect(editor?.textContent).toContain('ark.md')
+    wrapper.unmount()
+  })
+
+  it('opens nvim editor when executing nvim <slug>', async () => {
+    const wrapper = mount(Terminal, {
+      props: { catalog: ['ark', 'articles'], isActive: true },
+      attachTo: document.body
+    })
+    const input = wrapper.find('input')
+    await input.setValue('nvim ark')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const editor = document.body.querySelector('[data-testid="vim-editor"]')
+    expect(editor).not.toBeNull()
+    expect(editor?.textContent).toContain('[NVIM]')
+    expect(editor?.textContent).toContain('ark.md')
+    wrapper.unmount()
+  })
 })
+

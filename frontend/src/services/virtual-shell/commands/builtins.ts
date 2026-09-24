@@ -328,6 +328,67 @@ Type 'tldr rm' for simplified cheat sheets.`
   }
 }
 
+export const vimCommand: ShellCommand = {
+  name: 'vim',
+  description: 'Vi IMproved, a programmer\'s text editor',
+  usage: 'vim <slug>',
+  aliases: ['vi'],
+  execute: (ctx: ShellContext): CommandResult => {
+    const rawTarget = ctx.args[0]
+    if (!rawTarget) {
+      return {
+        output: 'vim: missing document slug argument\nUsage: vim <slug>',
+        type: 'error'
+      }
+    }
+    let slug = rawTarget.trim()
+    if (slug.endsWith('.md')) {
+      slug = slug.slice(0, -3)
+    }
+    if (ctx.openEditor) {
+      ctx.openEditor(slug, false)
+      return {
+        output: '',
+        type: 'editor'
+      }
+    }
+    return {
+      output: `vim: opened '${slug}'`,
+      type: 'text'
+    }
+  }
+}
+
+export const nvimCommand: ShellCommand = {
+  name: 'nvim',
+  description: 'Neovim, modern Vim-based text editor',
+  usage: 'nvim <slug>',
+  execute: (ctx: ShellContext): CommandResult => {
+    const rawTarget = ctx.args[0]
+    if (!rawTarget) {
+      return {
+        output: 'nvim: missing document slug argument\nUsage: nvim <slug>',
+        type: 'error'
+      }
+    }
+    let slug = rawTarget.trim()
+    if (slug.endsWith('.md')) {
+      slug = slug.slice(0, -3)
+    }
+    if (ctx.openEditor) {
+      ctx.openEditor(slug, true)
+      return {
+        output: '',
+        type: 'editor'
+      }
+    }
+    return {
+      output: `nvim: opened '${slug}'`,
+      type: 'text'
+    }
+  }
+}
+
 export const builtinCommands: ShellCommand[] = [
   whoamiCommand,
   pwdCommand,
@@ -339,5 +400,7 @@ export const builtinCommands: ShellCommand[] = [
   historyCommand,
   manCommand,
   mvCommand,
-  rmCommand
+  rmCommand,
+  vimCommand,
+  nvimCommand
 ]

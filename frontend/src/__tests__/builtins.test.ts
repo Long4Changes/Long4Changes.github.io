@@ -233,4 +233,44 @@ describe('Builtin Shell Commands', () => {
       expect(resBin.type).toBe('error')
     })
   })
+
+  describe('vim and nvim commands', () => {
+    it('vim requires document slug argument', async () => {
+      const vimCmd = builtinCommands.find(c => c.name === 'vim')!
+      const res = await vimCmd.execute(baseContext)
+      expect(res.output).toContain('missing document slug argument')
+      expect(res.type).toBe('error')
+    })
+
+    it('vim triggers openEditor callback on context', async () => {
+      const vimCmd = builtinCommands.find(c => c.name === 'vim')!
+      const openEditorMock = vi.fn()
+      const res = await vimCmd.execute({
+        ...baseContext,
+        args: ['ark.md'],
+        openEditor: openEditorMock
+      })
+      expect(openEditorMock).toHaveBeenCalledWith('ark', false)
+      expect(res.type).toBe('editor')
+    })
+
+    it('nvim requires document slug argument', async () => {
+      const nvimCmd = builtinCommands.find(c => c.name === 'nvim')!
+      const res = await nvimCmd.execute(baseContext)
+      expect(res.output).toContain('missing document slug argument')
+      expect(res.type).toBe('error')
+    })
+
+    it('nvim triggers openEditor callback on context with isNvim=true', async () => {
+      const nvimCmd = builtinCommands.find(c => c.name === 'nvim')!
+      const openEditorMock = vi.fn()
+      const res = await nvimCmd.execute({
+        ...baseContext,
+        args: ['articles'],
+        openEditor: openEditorMock
+      })
+      expect(openEditorMock).toHaveBeenCalledWith('articles', true)
+      expect(res.type).toBe('editor')
+    })
+  })
 })

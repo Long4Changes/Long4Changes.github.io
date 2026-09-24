@@ -108,7 +108,7 @@ export class ShellRegistry {
       const prefix = parts[0].toLowerCase()
       const allNames = this.getAllCommandNames()
       // Also include system commands if any
-      const systemNames = ['help', 'ls', 'search', 'ask', 'open', 'cat', 'sudo', 'auth', 'logout', 'sync', 'clear', 'rm']
+      const systemNames = ['help', 'ls', 'search', 'ask', 'open', 'cat', 'sudo', 'auth', 'logout', 'sync', 'clear', 'rm', 'vim', 'nvim']
       const combined = Array.from(new Set([...allNames, ...systemNames]))
       const matches = combined.filter(c => c.toLowerCase().startsWith(prefix))
       const common = findLongestCommonPrefix(matches)
@@ -128,8 +128,8 @@ export class ShellRegistry {
       return { matches, commonPrefix: common, appendSpace: false }
     }
 
-    // Case 3: bat/glow/cat/open/mv/rm <slug>
-    if (['bat', 'glow', 'cat', 'open', 'mv', 'rm'].includes(cmdName)) {
+    // Case 3: bat/glow/cat/open/mv/rm/vim/nvim <slug>
+    if (['bat', 'glow', 'cat', 'open', 'mv', 'rm', 'vim', 'nvim'].includes(cmdName)) {
       const catalog = ctx.catalog || []
       const matches = catalog
         .filter(slug => slug.toLowerCase().startsWith(arg))

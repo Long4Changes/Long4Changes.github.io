@@ -268,6 +268,48 @@ export function removeDocument(slug: string) {
   }
 }
 
+export async function saveDocument(slug: string, content: string): Promise<DocumentDetail> {
+  const cleanSlug = slug.replace(/\.md$/, '')
+  if (apiBase) {
+    try {
+      const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(cleanSlug)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ content })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (FALLBACK_DOCUMENTS[cleanSlug]) {
+          FALLBACK_DOCUMENTS[cleanSlug].content = content
+          FALLBACK_DOCUMENTS[cleanSlug].updated_at = data.updated_at || new Date().toISOString()
+        }
+        return data
+      }
+    } catch {
+      // Fallback to local storage update
+    }
+  }
+
+  if (FALLBACK_DOCUMENTS[cleanSlug]) {
+    FALLBACK_DOCUMENTS[cleanSlug].content = content
+    FALLBACK_DOCUMENTS[cleanSlug].updated_at = new Date().toISOString()
+    return FALLBACK_DOCUMENTS[cleanSlug]
+  }
+
+  const newDoc: DocumentDetail = {
+    slug: cleanSlug,
+    title: cleanSlug,
+    content,
+    visibility: 'public',
+    updated_at: new Date().toISOString()
+  }
+  FALLBACK_DOCUMENTS[cleanSlug] = newDoc
+  return newDoc
+}
+
 export async function searchDocuments(query: string, limit: number = 5): Promise<SearchResultItem[]> {
   if (apiBase) {
     try {

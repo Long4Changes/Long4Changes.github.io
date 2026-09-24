@@ -418,7 +418,44 @@ const tldrPages: Record<string, string> = {
   rm -f <file>
 
 - Verbose removal:
-  rm -v <file>`
+  rm -v <file>`,
+
+  vim: `vim - Ubiquitous text editor
+
+- Open a document in full-screen editor:
+  vim <slug>
+
+- Switch to Insert mode:
+  i
+
+- Return to Normal mode:
+  <Escape>
+
+- Save changes:
+  :w
+
+- Save and exit:
+  :wq
+
+- Quit without saving:
+  :q!`,
+
+  nvim: `nvim - Hyperextensible Vim-based text editor
+
+- Open document in full-screen Neovim:
+  nvim <slug>
+
+- Switch to Insert mode:
+  i
+
+- Save changes:
+  :w
+
+- Save and exit:
+  :wq
+
+- Force quit without saving:
+  :q!`
 }
 
 const tldrCommand: ShellCommand = {
@@ -446,7 +483,9 @@ NAVIGATION & SYSTEM
   mv       - Move or rename documents and files
   rm       - Remove files or directories
 
-CONTENT & READER
+EDITORS & CONTENT
+  vim      - Full-screen Vim modal text editor
+  nvim     - Full-screen Neovim modal text editor
   cat      - Print document contents in plain text
   bat      - View document with line numbers and syntax framing
   glow     - Render document in terminal Markdown styling
