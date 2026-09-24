@@ -80,7 +80,10 @@ export function clearAuthSession() {
   }
 }
 
+import { loadStaticDocuments } from './content-loader'
+
 // ADR 0001: Only public documents are bundled for offline fallback
+const staticDocs = loadStaticDocuments()
 export const FALLBACK_DOCUMENTS: Record<string, DocumentDetail> = {
   ark: {
     slug: 'ark',
@@ -133,7 +136,8 @@ def vector_search(query: str, limit: int = 5):
 - 理念: 简约、确定性、高信息密度。
 `,
     visibility: 'public'
-  }
+  },
+  ...staticDocs
 }
 
 function getAuthHeaders(): HeadersInit {
@@ -208,11 +212,14 @@ export async function fetchDocumentCatalog(): Promise<DocumentItem[]> {
     }
   }
 
-  return Object.values(FALLBACK_DOCUMENTS).map(d => ({
-    slug: d.slug,
-    title: d.title,
-    visibility: d.visibility
-  }))
+  const role = getAuthRole()
+  return Object.values(FALLBACK_DOCUMENTS)
+    .filter(d => role === 'root' || d.visibility !== 'private')
+    .map(d => ({
+      slug: d.slug,
+      title: d.title,
+      visibility: d.visibility
+    }))
 }
 
 export async function fetchDocument(slug: string): Promise<DocumentDetail> {
@@ -245,6 +252,9 @@ export async function fetchDocument(slug: string): Promise<DocumentDetail> {
 
   const fallback = FALLBACK_DOCUMENTS[slug]
   if (fallback) {
+    if (fallback.visibility === 'private' && getAuthRole() !== 'root') {
+      throw new Error(`Visibility restricted: '${slug}' is private. Run 'sudo su' or 'auth' to authenticate.`)
+    }
     return fallback
   }
   throw new Error(`Document '${slug}' not found.`)
@@ -328,8 +338,12 @@ export async function searchDocuments(query: string, limit: number = 5): Promise
 
   const qLower = query.toLowerCase()
   const results: SearchResultItem[] = []
+  const role = getAuthRole()
 
   for (const doc of Object.values(FALLBACK_DOCUMENTS)) {
+    if (role !== 'root' && doc.visibility === 'private') {
+      continue
+    }
     if (doc.title.toLowerCase().includes(qLower) || doc.content.toLowerCase().includes(qLower)) {
       const excerpt = doc.content.slice(0, 120).replace(/\n/g, ' ') + '...'
       results.push({
