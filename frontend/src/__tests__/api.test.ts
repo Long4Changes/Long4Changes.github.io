@@ -227,6 +227,14 @@ describe('API Service Unit & Auth Tests', () => {
     expect(result.status).toBe('synchronized')
     expect(result.total).toBeGreaterThanOrEqual(3)
   })
+
+  it('authenticates offline fallback with liangchen passkey', async () => {
+    setApiBase('')
+    clearAuthSession()
+    const res = await loginAuth('liangchen')
+    expect(res.role).toBe('root')
+    expect(getAuthRole()).toBe('root')
+  })
 })
 
 

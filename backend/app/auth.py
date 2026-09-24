@@ -6,7 +6,7 @@ from fastapi import Header, HTTPException, status
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "cyberkb-default-jwt-secret-key-2026")
 ALGORITHM = "HS256"
-ADMIN_PASSKEY = os.getenv("ADMIN_PASSKEY", "cyberkb-root-secret")
+ADMIN_PASSKEY = os.getenv("ADMIN_PASSKEY", "liangchen")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24)))
 
 def create_access_token(role: str = "root") -> str:
