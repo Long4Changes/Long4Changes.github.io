@@ -155,4 +155,82 @@ describe('Builtin Shell Commands', () => {
       expect(res.type).toBe('error')
     })
   })
+
+  describe('rm command', () => {
+    it('requires operand unless force is specified', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const resNoArgs = await rm.execute(baseContext)
+      expect(resNoArgs.output).toContain('missing operand')
+      expect(resNoArgs.type).toBe('error')
+
+      const resForce = await rm.execute({ ...baseContext, args: ['-f'] })
+      expect(resForce.output).toBe('')
+    })
+
+    it('errors on nonexistent file unless force is specified', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const res = await rm.execute({ ...baseContext, args: ['nonexistent.md'] })
+      expect(res.output).toContain("cannot remove 'nonexistent.md': No such file or directory")
+      expect(res.type).toBe('error')
+
+      const resForce = await rm.execute({ ...baseContext, args: ['-f', 'nonexistent.md'] })
+      expect(resForce.output).toBe('')
+    })
+
+    it('blocks non-root guest execution with permission denied', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const res = await rm.execute({ ...baseContext, role: 'guest', cwd: '/docs', args: ['ark.md'] })
+      expect(res.output).toContain("cannot remove 'ark.md': Permission denied")
+      expect(res.type).toBe('error')
+    })
+
+    it('removes document when executed as root', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const mockCatalog = ['ark', 'articles']
+      const removeDocMock = vi.fn()
+      const res = await rm.execute({
+        ...baseContext,
+        role: 'root',
+        cwd: '/docs',
+        catalog: mockCatalog,
+        args: ['ark.md'],
+        removeDocument: removeDocMock
+      })
+      expect(res.output).toBe('')
+      expect(mockCatalog).toEqual(['articles'])
+      expect(removeDocMock).toHaveBeenCalledWith('ark')
+    })
+
+    it('supports -v verbose flag', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const mockCatalog = ['ark', 'articles']
+      const res = await rm.execute({
+        ...baseContext,
+        role: 'root',
+        cwd: '/docs',
+        catalog: mockCatalog,
+        args: ['-v', 'ark.md']
+      })
+      expect(res.output).toBe("removed 'ark.md'")
+    })
+
+    it('protects root / and immutable system files', async () => {
+      const rm = builtinCommands.find(c => c.name === 'rm')!
+      const resRoot = await rm.execute({
+        ...baseContext,
+        role: 'root',
+        args: ['-rf', '/']
+      })
+      expect(resRoot.output).toContain("it is dangerous to operate recursively on '/'")
+      expect(resRoot.type).toBe('error')
+
+      const resBin = await rm.execute({
+        ...baseContext,
+        role: 'root',
+        args: ['/bin/ls']
+      })
+      expect(resBin.output).toContain('Read-only file system')
+      expect(resBin.type).toBe('error')
+    })
+  })
 })

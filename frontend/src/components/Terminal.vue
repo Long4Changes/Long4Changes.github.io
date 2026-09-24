@@ -9,6 +9,7 @@ import {
   syncDocuments,
   fetchDocument,
   renameDocument,
+  removeDocument,
   type SearchResultItem,
   type CitationItem,
   type Role
@@ -37,6 +38,7 @@ const emit = defineEmits<{
   (e: 'open', slug: string): void
   (e: 'auth-change', role: Role): void
   (e: 'rename-document', oldSlug: string, newSlug: string): void
+  (e: 'remove-document', slug: string): void
 }>()
 
 const history = ref<HistoryItem[]>([])
@@ -361,6 +363,10 @@ async function handleCommand(cmd: string) {
       renameDocument: (oldSlug: string, newSlug: string) => {
         renameDocument(oldSlug, newSlug)
         emit('rename-document', oldSlug, newSlug)
+      },
+      removeDocument: (slug: string) => {
+        removeDocument(slug)
+        emit('remove-document', slug)
       }
     }
     try {

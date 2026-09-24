@@ -120,4 +120,16 @@ describe('Terminal with Virtual Shell Integration', () => {
 
     expect(wrapper.text()).toContain("cannot move 'ark.md' to 'ark_new.md': Permission denied")
   })
+
+  it('handles rm command and blocks guest permissions', async () => {
+    const wrapper = mount(Terminal, {
+      props: { catalog: ['ark', 'articles'], isActive: true }
+    })
+    const input = wrapper.find('input')
+    await input.setValue('rm ark.md')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain("cannot remove 'ark.md': Permission denied")
+  })
 })

@@ -60,6 +60,16 @@ function handleRenameDocument(oldSlug: string, newSlug: string) {
   }
 }
 
+function handleRemoveDocument(slug: string) {
+  const idx = catalog.value.indexOf(slug)
+  if (idx !== -1) {
+    catalog.value.splice(idx, 1)
+  }
+  if (activeSlug.value === slug) {
+    handleCloseWindow()
+  }
+}
+
 onMounted(() => {
   loadCatalog()
 })
@@ -76,6 +86,7 @@ onMounted(() => {
           @open="handleOpenSlug"
           @auth-change="handleAuthChange"
           @rename-document="handleRenameDocument"
+          @remove-document="handleRemoveDocument"
           :isActive="!isWindowOpen"
         />
       </div>

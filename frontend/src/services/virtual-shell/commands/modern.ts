@@ -404,7 +404,21 @@ const tldrPages: Record<string, string> = {
   mv <source> <directory/>
 
 - Move with verbose output:
-  mv -v <source> <destination>`
+  mv -v <source> <destination>`,
+
+  rm: `rm - Remove files or directories
+
+- Remove specific files:
+  rm <file1> <file2>
+
+- Recursively remove a directory:
+  rm -r <directory>
+
+- Force removal without prompting:
+  rm -f <file>
+
+- Verbose removal:
+  rm -v <file>`
 }
 
 const tldrCommand: ShellCommand = {
@@ -430,6 +444,7 @@ NAVIGATION & SYSTEM
   history  - Show shell command execution history
   clear    - Clear terminal screen
   mv       - Move or rename documents and files
+  rm       - Remove files or directories
 
 CONTENT & READER
   cat      - Print document contents in plain text

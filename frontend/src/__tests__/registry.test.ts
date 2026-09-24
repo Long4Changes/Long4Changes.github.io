@@ -75,4 +75,16 @@ describe('ShellRegistry and Dispatcher', () => {
     expect(autoMvSlug.matches).toContain('mv ark')
     expect(autoMvSlug.matches).toContain('mv articles')
   })
+
+  it('provides autocomplete candidates for rm and tldr rm', () => {
+    const autoR = defaultShellRegistry.getAutocomplete('r', baseContext)
+    expect(autoR.matches).toContain('rm')
+
+    const autoTldr = defaultShellRegistry.getAutocomplete('tldr r', baseContext)
+    expect(autoTldr.matches).toContain('tldr rm')
+
+    const autoRmSlug = defaultShellRegistry.getAutocomplete('rm ar', baseContext)
+    expect(autoRmSlug.matches).toContain('rm ark')
+    expect(autoRmSlug.matches).toContain('rm articles')
+  })
 })

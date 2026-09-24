@@ -212,6 +212,122 @@ export const mvCommand: ShellCommand = {
   }
 }
 
+export const rmCommand: ShellCommand = {
+  name: 'rm',
+  description: 'remove files or directories',
+  usage: 'rm [options] <file...>',
+  execute: (ctx: ShellContext): CommandResult => {
+    const rawArgs = ctx.args || []
+    const isRecursive = rawArgs.includes('-r') || rawArgs.includes('-R') || rawArgs.includes('--recursive')
+    const isForce = rawArgs.includes('-f') || rawArgs.includes('--force')
+    const isVerbose = rawArgs.includes('-v') || rawArgs.includes('--verbose')
+    const isHelp = rawArgs.includes('--help') || rawArgs.includes('-h')
+
+    if (isHelp) {
+      return {
+        output: `Usage: rm [OPTION]... [FILE]...
+Remove (unlink) the FILE(s).
+
+Options:
+  -f, --force     ignore nonexistent files and arguments, never prompt
+  -r, -R, --recursive   remove directories and their contents recursively
+  -v, --verbose   explain what is being done
+  --help          display this help and exit
+
+Type 'tldr rm' for simplified cheat sheets.`
+      }
+    }
+
+    const posArgs = rawArgs.filter(a => !a.startsWith('-'))
+
+    if (posArgs.length === 0) {
+      if (isForce) {
+        return { output: '' }
+      }
+      return {
+        output: "rm: missing operand\nTry 'tldr rm' for more information.",
+        type: 'error'
+      }
+    }
+
+    const removedList: string[] = []
+
+    for (const file of posArgs) {
+      let resolved = vfs.resolvePath(ctx.cwd, file, ctx.catalog)
+      if (!resolved && ctx.catalog && ctx.catalog.includes(file.replace(/\.md$/, ''))) {
+        resolved = `/docs/${file.replace(/\.md$/, '')}.md`
+      }
+
+      if (!resolved) {
+        if (!isForce) {
+          return {
+            output: `rm: cannot remove '${file}': No such file or directory`,
+            type: 'error'
+          }
+        }
+        continue
+      }
+
+      if (resolved === '/') {
+        return {
+          output: "rm: it is dangerous to operate recursively on '/'",
+          type: 'error'
+        }
+      }
+
+      if (ctx.role !== 'root') {
+        return {
+          output: `rm: cannot remove '${file}': Permission denied`,
+          type: 'error'
+        }
+      }
+
+      if (resolved.startsWith('/bin') || resolved.startsWith('/etc')) {
+        return {
+          output: `rm: cannot remove '${file}': Read-only file system (system files and directories are protected)`,
+          type: 'error'
+        }
+      }
+
+      if (vfs.isDir(resolved)) {
+        if (!isRecursive) {
+          return {
+            output: `rm: cannot remove '${file}': Is a directory`,
+            type: 'error'
+          }
+        }
+        if (['/docs', '/home', '/bin', '/etc'].includes(resolved)) {
+          return {
+            output: `rm: cannot remove '${file}': Device or resource busy`,
+            type: 'error'
+          }
+        }
+      }
+
+      const filename = resolved.split('/').pop() || ''
+      const slug = filename.replace(/\.md$/, '')
+
+      if (ctx.catalog) {
+        const idx = ctx.catalog.indexOf(slug)
+        if (idx !== -1) {
+          ctx.catalog.splice(idx, 1)
+        }
+      }
+
+      ctx.removeDocument?.(slug)
+      removedList.push(file)
+    }
+
+    if (isVerbose && removedList.length > 0) {
+      return {
+        output: removedList.map(f => `removed '${f}'`).join('\n')
+      }
+    }
+
+    return { output: '' }
+  }
+}
+
 export const builtinCommands: ShellCommand[] = [
   whoamiCommand,
   pwdCommand,
@@ -222,5 +338,6 @@ export const builtinCommands: ShellCommand[] = [
   echoCommand,
   historyCommand,
   manCommand,
-  mvCommand
+  mvCommand,
+  rmCommand
 ]

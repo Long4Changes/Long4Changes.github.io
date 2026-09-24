@@ -262,6 +262,12 @@ export function renameDocument(oldSlug: string, newSlug: string) {
   }
 }
 
+export function removeDocument(slug: string) {
+  if (FALLBACK_DOCUMENTS[slug]) {
+    delete FALLBACK_DOCUMENTS[slug]
+  }
+}
+
 export async function searchDocuments(query: string, limit: number = 5): Promise<SearchResultItem[]> {
   if (apiBase) {
     try {
