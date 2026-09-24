@@ -154,16 +154,31 @@ async function handleCommand(cmd: string) {
       response: 'Available commands:\n  help             - Show this help menu\n  ls               - List available document slugs or directory contents\n  cd <dir>         - Change working directory (~, /docs, /bin, /etc)\n  pwd              - Print current working directory\n  whoami           - Display current user identity (guest or root)\n  uname -a         - Print system and kernel specifications\n  date             - Display current date and time\n  uptime           - Show virtual system uptime and load average\n  history          - Display numbered list of executed commands\n  tree [dir]       - Print ASCII directory tree\n  bat <slug>       - View document with bordered line numbers\n  glow <slug>      - Render Markdown document in terminal\n  tldr [cmd]       - Simplified community cheatsheets\n  neofetch         - Print retro system info and ASCII badge\n  search <query>   - Semantic vector search across documents\n  ask <question>   - RAG conversational Q&A with token streaming\n  open <slug>      - Open document in split-pane ASCII window card\n  cat <slug>       - Print raw content of document\n  sudo su / auth   - Authenticate with owner passkey (root mode)\n  logout           - Exit root session and revert to guest\n  sync             - Synchronize repository markdown documents (requires root)\n  clear            - Clear terminal screen'
     })
   } else if (command === 'ls') {
-    const vfsList = vfs.listDir(cwd.value, props.catalog)
-    const docSlugs = props.catalog.length > 0 ? props.catalog.join('  ') : ''
-    const out = cwd.value === '/'
-      ? `${vfsList.join('  ')}\nDocuments: ${docSlugs}`
-      : vfsList.join('  ')
-    history.value.push({
-      prompt: currentPrompt,
-      command: trimmedCmd,
-      response: out || docSlugs || 'No documents found.'
-    })
+    const rawTarget = args.find(a => !a.startsWith('-'))
+    const targetDir = rawTarget ? rawTarget.trim() : cwd.value
+    const resolved = vfs.resolvePath(cwd.value, targetDir, props.catalog)
+
+    if (!resolved) {
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: `ls: cannot access '${rawTarget}': No such file or directory`,
+        type: 'error'
+      })
+    } else if (vfs.isDir(resolved)) {
+      const items = vfs.listDir(resolved, props.catalog)
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: items.join('  ') || 'Total 0'
+      })
+    } else {
+      history.value.push({
+        prompt: currentPrompt,
+        command: trimmedCmd,
+        response: resolved.split('/').pop() || resolved
+      })
+    }
   } else if (command === 'clear') {
     history.value = []
     return

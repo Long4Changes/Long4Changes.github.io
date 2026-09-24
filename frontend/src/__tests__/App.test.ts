@@ -35,9 +35,16 @@ describe('End-to-End Terminal, Search, and Owner Auth Flow', () => {
     await input.setValue('ls')
     await input.trigger('keydown', { key: 'Enter' })
     await flushPromises()
-    expect(wrapper.text()).toContain('ark')
-    expect(wrapper.text()).toContain('articles')
-    expect(wrapper.text()).toContain('about')
+    expect(wrapper.text()).toContain('docs/')
+    expect(wrapper.text()).toContain('bin/')
+
+    // Test ls docs command
+    await input.setValue('ls docs')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('ark.md')
+    expect(wrapper.text()).toContain('articles.md')
+    expect(wrapper.text()).toContain('about.md')
     
     // Test clear command
     await input.setValue('clear')
